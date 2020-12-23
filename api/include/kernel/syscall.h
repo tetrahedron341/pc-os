@@ -1,0 +1,1 @@
+long long syscall(long long a, char ** target);

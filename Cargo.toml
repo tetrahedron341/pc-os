@@ -1,0 +1,40 @@
+[package]
+name = "pc-os"
+version = "0.1.0"
+authors = ["Ben Engdahl <bengdahl341@gmail.com>"]
+edition = "2018"
+build = "build.rs"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[package.metadata.bootimage]
+test-args = ["-device", "isa-debug-exit,iobase=0xf4,iosize=0x04", "-serial", "none", "-display", "none"]
+test-success-exit-code = 33
+test-timeout = 300
+run-args = ["-serial", "stdio"]
+
+[dependencies]
+bootloader = {path = "./bootloader", features = ["recursive_page_table", "vesa_graphics", "sse"]}
+volatile = "0.2.6"
+lazy_static = {version = "*", features = ["spin_no_std"]}
+spin = "0.5"
+x86_64 = "0.12.2"
+uart_16550 = "0.2.10"
+pic8259_simple = "0.2.0"
+pc-keyboard = "0.5.0"
+linked_list_allocator = "0.8.6"
+conquer-once = {version = "0.2.0", default-features = false}
+crossbeam-queue = {version = "0.2.1", default-features = false, features = ["alloc"]}
+futures-util = {version = "0.3.4", default-features = false, features = ["alloc"]}
+log = {version = "0.4", default-features = false}
+goblin = {version = "0.2.3", default-features = false, features = ["elf64"]}
+acpi = "2.0.0"
+bare-io = {version = "0.2.1", features = ["alloc", "nightly"]}
+
+[[test]]
+name = "should_panic"
+harness = false
+
+[[test]]
+name = "stack_overflow"
+harness = false
