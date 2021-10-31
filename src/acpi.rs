@@ -63,15 +63,3 @@ impl<'a> acpi::AcpiHandler for Handler<'a> {
         // This leaks. Fix this.
     }
 }
-
-pub unsafe fn init<'a>(
-    mapper: &'a spin::Mutex<x86_64::structures::paging::RecursivePageTable<'a>>,
-    frame_allocator: &'a spin::Mutex<crate::memory::BootInfoFrameAllocator>,
-) -> acpi::AcpiTables<Handler<'a>> {
-    let handler = Handler {
-        mapper,
-        frame_allocator,
-    };
-
-    acpi::AcpiTables::search_for_rsdp_bios(handler).unwrap()
-}

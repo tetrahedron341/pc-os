@@ -1,6 +1,5 @@
 #![no_std]
 #![no_main]
-
 #![feature(custom_test_frameworks)]
 #![feature(asm)]
 #![test_runner(crate::test_runner)]
@@ -9,8 +8,8 @@
 extern crate alloc;
 
 use ::log::*;
-use core::panic::PanicInfo;
 use bootloader::BootInfo;
+use core::panic::PanicInfo;
 
 use pc_os::*;
 
@@ -20,7 +19,7 @@ const CONSOLE_LOG_MIN: LevelFilter = LevelFilter::Warn;
 #[panic_handler]
 #[cfg(not(test))]
 fn panic(info: &PanicInfo) -> ! {
-    // The kernel will never return from a panic anyways, and printing panic 
+    // The kernel will never return from a panic anyways, and printing panic
     // information takes priority over being in a usable state afterwards.
     // FIXME: When we implement multiprocessing, we need to signal all other threads to stop execution first.
     unsafe {
@@ -44,19 +43,21 @@ bootloader::entry_point!(main);
 
 fn main(boot_info: &'static BootInfo) -> ! {
     let init::InitServices {
-        idt_service: _idt_service, gdt_service: _gdt_service, paging_service
+        idt_service: _idt_service,
+        gdt_service: _gdt_service,
+        paging_service,
     } = init::init(boot_info);
 
     log::init(SERIAL_LOG_MIN, CONSOLE_LOG_MIN, 128);
-    
+
     #[cfg(test)]
     test_main();
-    
+
     {
         let screen = video::vesa::lock_screen().unwrap();
         let width = screen.width();
         let height = screen.height();
-        screen.draw_rect_with(0, 0, width, height, |x,y| {
+        screen.draw_rect_with(0, 0, width, height, |x, y| {
             let u = x as f64 / width as f64;
             let v = y as f64 / height as f64;
             (((1.0 - u) * 255.9) as u8, 0, ((1.0 - v) * 255.9) as u8)
@@ -73,7 +74,7 @@ fn main(boot_info: &'static BootInfo) -> ! {
         if let Some(console) = video::console::CONSOLE.lock().as_mut() {
             for r in 0..16 {
                 for c in 0..32 {
-                    console.write_glyph(r*32 + c);
+                    console.write_glyph(r * 32 + c);
                 }
                 console.newline();
             }
@@ -84,7 +85,7 @@ fn main(boot_info: &'static BootInfo) -> ! {
         let screen = video::vesa::lock_screen().unwrap();
         (screen.width(), screen.height())
     };
-    println!("");
+    println!();
     println!("Hello from {}x{} VESA!", width, height);
 
     let mut fs = {

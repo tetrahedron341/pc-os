@@ -12,15 +12,13 @@ lazy_static! {
             const STACK_SIZE: usize = 16 * 1024; // jesus christ how much memory does panic! need?
             static mut STACK: [u8; STACK_SIZE] = [0; STACK_SIZE];
             let stack_start = VirtAddr::from_ptr(unsafe {&STACK});
-            let stack_end = stack_start + STACK_SIZE;
-            stack_end
+            stack_start + STACK_SIZE
         };
         tss.privilege_stack_table[0] = {
             const STACK_SIZE: usize = 16 * 1024;
             static mut STACK: [u8; STACK_SIZE] = [0; STACK_SIZE];
             let stack_start = VirtAddr::from_ptr(unsafe {&STACK});
-            let stack_end = stack_start + STACK_SIZE;
-            stack_end
+            stack_start + STACK_SIZE
         };
         tss
     };

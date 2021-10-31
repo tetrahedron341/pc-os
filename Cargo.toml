@@ -28,7 +28,7 @@ bootloader = { path = "./bootloader", features = [
 ] }
 volatile = "0.2.6"
 lazy_static = { version = "*", features = ["spin_no_std"] }
-spin = "0.5"
+spin = "0.9"
 x86_64 = "0.14.6"
 uart_16550 = "0.2.10"
 pic8259 = "0.10"
