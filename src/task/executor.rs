@@ -1,6 +1,6 @@
 use super::{Task, TaskId};
 use alloc::{collections::BTreeMap, sync::Arc};
-use core::task::{Waker, Context, Poll};
+use core::task::{Context, Poll, Waker};
 use crossbeam_queue::ArrayQueue;
 
 pub struct Executor {
@@ -30,7 +30,7 @@ impl Executor {
         let Self {
             tasks,
             task_queue,
-            waker_cache
+            waker_cache,
         } = self;
 
         while let Ok(task_id) = task_queue.pop() {
@@ -47,7 +47,7 @@ impl Executor {
                 Poll::Ready(()) => {
                     tasks.remove(&task_id);
                     waker_cache.remove(&task_id);
-                },
+                }
                 Poll::Pending => {}
             }
         }
@@ -63,7 +63,7 @@ impl Executor {
     fn sleep_if_idle(&self) {
         x86_64::instructions::interrupts::disable();
         if self.task_queue.is_empty() {
-            x86_64::instructions::interrupts::enable_interrupts_and_hlt();
+            x86_64::instructions::interrupts::enable_and_hlt();
         } else {
             x86_64::instructions::interrupts::enable();
         }
@@ -77,7 +77,10 @@ struct TaskWaker {
 
 impl TaskWaker {
     fn new(task_id: TaskId, task_queue: Arc<ArrayQueue<TaskId>>) -> Waker {
-        Waker::from(Arc::new(TaskWaker { task_id, task_queue }))
+        Waker::from(Arc::new(TaskWaker {
+            task_id,
+            task_queue,
+        }))
     }
 
     fn wake_task(&self) {

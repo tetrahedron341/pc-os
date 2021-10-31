@@ -14,8 +14,11 @@ struct ListNode {
 
 impl FixedSizeBlockAllocator {
     pub const fn new() -> Self {
+        /// A workaround to make const non-Copy arrays
+        const NONE: Option<&'static mut ListNode> = None;
+
         FixedSizeBlockAllocator {
-            list_heads: [None ; BLOCK_SIZES.len()],
+            list_heads: [NONE; BLOCK_SIZES.len()],
             fallback_allocator: linked_list_allocator::Heap::empty(),
         }
     }
@@ -46,22 +49,19 @@ unsafe impl GlobalAlloc for Locked<FixedSizeBlockAllocator> {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         let mut allocator = self.lock();
         match list_index(&layout) {
-            Some(index) => {
-                match allocator.list_heads[index].take() {
-                    Some(node) => {
-                        allocator.list_heads[index] = node.next.take();
-                        node as *mut ListNode as *mut u8
-                    },
-                    None => {
-                        let block_size = BLOCK_SIZES[index];
-                        let block_align = block_size;
-                        let layout = Layout::from_size_align(block_size, block_align)
-                            .unwrap();
-                        allocator.fallback_alloc(layout)
-                    }
+            Some(index) => match allocator.list_heads[index].take() {
+                Some(node) => {
+                    allocator.list_heads[index] = node.next.take();
+                    node as *mut ListNode as *mut u8
+                }
+                None => {
+                    let block_size = BLOCK_SIZES[index];
+                    let block_align = block_size;
+                    let layout = Layout::from_size_align(block_size, block_align).unwrap();
+                    allocator.fallback_alloc(layout)
                 }
             },
-            None => allocator.fallback_alloc(layout)
+            None => allocator.fallback_alloc(layout),
         }
     }
 
@@ -70,14 +70,14 @@ unsafe impl GlobalAlloc for Locked<FixedSizeBlockAllocator> {
         match list_index(&layout) {
             Some(index) => {
                 let new_node = ListNode {
-                    next: allocator.list_heads[index].take()
+                    next: allocator.list_heads[index].take(),
                 };
                 assert!(core::mem::size_of::<ListNode>() <= BLOCK_SIZES[index]);
                 assert!(core::mem::align_of::<ListNode>() <= BLOCK_SIZES[index]);
                 let new_node_ptr = ptr as *mut ListNode;
                 new_node_ptr.write(new_node);
                 allocator.list_heads[index] = Some(&mut *new_node_ptr);
-            },
+            }
             None => {
                 let ptr = core::ptr::NonNull::new(ptr).unwrap();
                 allocator.fallback_allocator.deallocate(ptr, layout);
