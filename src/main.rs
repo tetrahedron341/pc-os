@@ -41,7 +41,7 @@ fn panic(info: &PanicInfo) -> ! {
 
 bootloader::entry_point!(main);
 
-fn main(boot_info: &'static BootInfo) -> ! {
+fn main(boot_info: &'static mut BootInfo) -> ! {
     let init::InitServices {
         idt_service: _idt_service,
         gdt_service: _gdt_service,
@@ -54,10 +54,10 @@ fn main(boot_info: &'static BootInfo) -> ! {
     test_main();
 
     {
-        let screen = video::vesa::lock_screen().unwrap();
+        let mut screen = video::vesa::lock_screen().unwrap();
         let width = screen.width();
         let height = screen.height();
-        screen.draw_rect_with(0, 0, width, height, |x, y| {
+        screen.draw_rect_with(0, 0, width, height, |x, y, _| {
             let u = x as f64 / width as f64;
             let v = y as f64 / height as f64;
             (((1.0 - u) * 255.9) as u8, 0, ((1.0 - v) * 255.9) as u8)
