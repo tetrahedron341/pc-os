@@ -1,4 +1,3 @@
-.intel_syntax noprefix
 .global _syscall_handler
 .extern syscall_handler, SYSCALL_RSP, RETURN_RSP
 
