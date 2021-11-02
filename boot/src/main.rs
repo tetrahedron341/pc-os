@@ -1,37 +1,51 @@
+use argh::FromArgs;
 use std::{
     path::{Path, PathBuf},
     process::Command,
 };
 
-const RUN_ARGS: &[&str] = &["-no-shutdown", "-no-reboot", "-s", "-serial", "stdio"];
+const RUN_ARGS: &[&str] = &[
+    "-no-shutdown",
+    "-no-reboot",
+    "-s",
+    "-serial",
+    "stdio",
+    "-vga",
+    "std",
+];
+
+#[derive(FromArgs)]
+/// Builds the kernel.
+struct Args {
+    #[argh(positional)]
+    /// path to the kernel binary file
+    kernel_binary_path: PathBuf,
+
+    #[argh(switch)]
+    /// do not run the kernel in QEMU
+    no_boot: bool,
+}
 
 fn main() {
-    let mut args = std::env::args().skip(1); // skip executable name
+    let Args {
+        kernel_binary_path,
+        no_boot,
+    } = argh::from_env();
 
-    let kernel_binary_path = {
-        let path = PathBuf::from(args.next().unwrap());
-        path.canonicalize().unwrap()
-    };
-    let no_boot = if let Some(arg) = args.next() {
-        match arg.as_str() {
-            "--no-run" => true,
-            other => panic!("unexpected argument `{}`", other),
-        }
-    } else {
-        false
-    };
+    let kernel_binary_path = kernel_binary_path.canonicalize().unwrap();
 
-    let bios = create_disk_images(&kernel_binary_path);
+    let uefi = create_disk_images(&kernel_binary_path);
 
     if no_boot {
-        println!("Created disk image at `{}`", bios.display());
+        println!("Created disk image at `{}`", uefi.display());
         return;
     }
 
     let mut run_cmd = Command::new("qemu-system-x86_64");
     run_cmd
         .arg("-drive")
-        .arg(format!("format=raw,file={}", bios.display()));
+        .arg(format!("format=raw,file={}", uefi.display()))
+        .args(["-bios", "OVMF-pure-efi.fd"]);
     run_cmd.args(RUN_ARGS);
 
     let exit_status = run_cmd.status().unwrap();
@@ -66,7 +80,7 @@ pub fn create_disk_images(kernel_binary_path: &Path) -> PathBuf {
     let disk_image = kernel_binary_path
         .parent()
         .unwrap()
-        .join(format!("boot-bios-{}.img", kernel_binary_name));
+        .join(format!("boot-uefi-{}.img", kernel_binary_name));
     if !disk_image.exists() {
         panic!(
             "Disk image does not exist at {} after bootloader build",
