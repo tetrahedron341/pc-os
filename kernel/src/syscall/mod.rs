@@ -1,7 +1,5 @@
 mod syscalls;
 
-pub use syscalls::*;
-
 static mut STACK: [u8; 32 * 1024] = [0; 32 * 1024];
 #[no_mangle]
 static mut SYSCALL_RSP: *const u8 = unsafe { &STACK[STACK.len() - 8] as *const u8 };
