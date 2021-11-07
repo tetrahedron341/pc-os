@@ -1,25 +1,28 @@
-long long syscall(long long a, char ** target) {
-    long long r14_out;
-    char * r15_out;
+#include "kernel/syscall.h"
 
-    if (target == 0) {
-        static char * null = (char *) 0;
-        target = &null;
-    }
+uint64_t syscall(uint64_t a, char *target)
+{
+  long long r14_out;
+  char *r15_out;
 
-    asm (
-        "mov %2, %%r14 \n"
-        "mov %3, %%r15 \n"
-        "syscall \n"
-        "mov %%r14, %0 \n"
-        "mov %%r15, %1"
+  if (target == 0)
+  {
+    static char *null = (char *)0;
+    target = &null;
+  }
 
-        : "=r" (r14_out),
-          "=r" (r15_out)
-        : "r" (a),
-          "r" (*target)
-    );
+  asm(
+      "mov %2, %%r14 \n"
+      "mov %3, %%r15 \n"
+      "syscall \n"
+      "mov %%r14, %0 \n"
+      "mov %%r15, %1"
 
-    *target = r15_out;
-    return r14_out;
+      : "=r"(r14_out),
+        "=r"(r15_out)
+      : "r"(a),
+        "r"(*target));
+
+  *target = r15_out;
+  return r14_out;
 }
