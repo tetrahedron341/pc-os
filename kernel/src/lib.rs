@@ -26,6 +26,11 @@ pub mod syscall;
 pub mod task;
 pub mod video;
 
+#[allow(clippy::all)]
+pub mod uapi {
+    include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
+}
+
 use core::panic::PanicInfo;
 
 pub trait Testable {
