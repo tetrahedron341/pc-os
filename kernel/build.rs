@@ -23,6 +23,7 @@ fn main() {
         .parse_callbacks(Box::new(bindgen::CargoCallbacks))
         .clang_arg("-ffreestanding")
         .ctypes_prefix("crate::uapi")
+        .fit_macro_constants(true)
         .generate()
         .unwrap();
 

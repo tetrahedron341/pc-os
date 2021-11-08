@@ -12,6 +12,7 @@ use crate::uapi::*;
 pub enum SyscallOpCode {
     /// Print out "Ping!" to the console screen
     Ping = SYS_PING as u8,
+    PutChar = SYS_PUTCHAR as u8,
     GetKbdCode = SYS_GETCHAR as u8,
 
     /// Exits the current process
@@ -23,10 +24,11 @@ impl TryFrom<u8> for SyscallOpCode {
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         use SyscallOpCode::*;
         match value {
-            0 => Ok(Ping),
-            1 => Ok(GetKbdCode),
+            SYS_PING => Ok(Ping),
+            SYS_PUTCHAR => Ok(PutChar),
+            SYS_GETCHAR => Ok(GetKbdCode),
 
-            127 => Ok(Exit),
+            SYS_EXIT => Ok(Exit),
             _ => Err(()),
         }
     }
