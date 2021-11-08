@@ -144,6 +144,9 @@ dependencies = [
 [[package]]
 name = "bootloader"
 version = "0.10.9"
+dependencies = [
+ "json",
+]
 
 [[package]]
 name = "cexpr"

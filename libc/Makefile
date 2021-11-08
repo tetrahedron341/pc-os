@@ -10,6 +10,7 @@ OBJS=\
 	stdlib/abort.o \
 	syscall.o \
 	sys/ping.o \
+	sys/putchar.o \
 
 .PHONY: all clean
 
