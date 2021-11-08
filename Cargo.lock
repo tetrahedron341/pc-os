@@ -144,6 +144,10 @@ dependencies = [
 [[package]]
 name = "bootloader"
 version = "0.10.9"
+source = "git+https://github.com/bengdahl/bootloader#41b026bab00b793814af20728e4ce48f689b209d"
+dependencies = [
+ "json",
+]
 
 [[package]]
 name = "cexpr"
