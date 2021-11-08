@@ -1,15 +1,12 @@
-#include <kernel/syscall.h>
+#include <stdlib.h>
+#include <sys/ping.h>
 
 void _start()
 {
-    for (int i = 0; i < 7; i++)
+    for (int i = 0; i < 3; i++)
     {
-        syscall(0, (char *)0);
+        ping();
     }
 
-    syscall(127, (char *)0);
-
-    while (0)
-    {
-    }
+    abort();
 }
