@@ -89,10 +89,13 @@ fn main(boot_info: &'static mut BootInfo) -> ! {
     println!();
     println!("Hello from {}x{} VESA!", width, height);
 
-    let mut fs = {
-        static INITRD: &[u8] = include_bytes!("../../initrd/initrd.tar");
-        file::ustar::get_all_entries(INITRD)
-    };
+    println!("Loaded boot modules: {:#?}", modules);
+    let initrd = modules
+        .iter()
+        .find(|m| m.name == "initrd")
+        .expect("Boot module `initrd` not found.");
+
+    let mut fs = file::ustar::get_all_entries(initrd.data);
     for entry in fs.iter() {
         println!("File: {}, Size: {}", entry.file_name(), entry.file_size());
     }
@@ -105,8 +108,6 @@ fn main(boot_info: &'static mut BootInfo) -> ! {
         };
         println!("hello.txt contents:\n{}", s)
     }
-
-    serial_println!("Loaded modules: {:#?}", modules);
 
     syscall::init();
 
