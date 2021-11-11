@@ -53,7 +53,9 @@ pub struct IdtService {
 pub fn init_idt() -> IdtService {
     IDT.load();
     unsafe {
-        PICS.lock().initialize();
+        let mut pics = PICS.lock();
+        pics.initialize();
+        pics.write_masks(0xFD, 0xFF);
     }
     IdtService { _private: () }
 }
