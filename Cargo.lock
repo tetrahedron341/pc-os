@@ -113,14 +113,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
 
 [[package]]
-name = "boot"
-version = "0.1.0"
-dependencies = [
- "argh",
- "json",
-]
-
-[[package]]
 name = "bootloader"
 version = "0.10.10"
 source = "git+https://github.com/tetrahedron341/bootloader#798a68599c56909daae6c99f436e92eeb5eba65c"
@@ -500,6 +492,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "66d3add2fc55ef37511bcf81a08ee7a09eff07b23aae38b06a29024a38c604b1"
 dependencies = [
  "log",
+]
+
+[[package]]
+name = "runner"
+version = "0.1.0"
+dependencies = [
+ "argh",
+ "json",
 ]
 
 [[package]]

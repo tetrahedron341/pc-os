@@ -1,5 +1,5 @@
 [target.'cfg(target_os = "none")']
-runner = "cargo run --package boot --"
+runner = "cargo run --package runner --"
 
 [alias]
 kbuild = "build --bin kernel --target x86_64-pc_os.json -Zbuild-std=core,alloc -Zbuild-std-features=compiler-builtins-mem"
