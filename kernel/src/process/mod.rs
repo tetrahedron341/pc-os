@@ -36,7 +36,8 @@ pub fn user_mode(fs: Vec<UstarFile>, mut paging_service: crate::memory::PagingSe
     let executor = executor::Executor::new(init_proc, PROCESS_START, paging_service);
     register_executor(executor);
 
-    EXECUTOR.lock().as_mut().unwrap().run()
+    // EXECUTOR.lock().as_mut().unwrap().run()
+    crate::arch::loop_forever()
 }
 
 pub struct Process {

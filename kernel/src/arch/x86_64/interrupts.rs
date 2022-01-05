@@ -1,4 +1,4 @@
-use crate::gdt;
+use super::gdt;
 use lazy_static::lazy_static;
 use pic8259::ChainedPics;
 use spin;
