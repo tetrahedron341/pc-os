@@ -1,5 +1,3 @@
-use core::arch::asm;
-
 use super::Process;
 use super::Registers;
 use alloc::collections::VecDeque;

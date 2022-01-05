@@ -10,17 +10,3 @@ impl core::fmt::Debug for BootModule {
             .finish_non_exhaustive()
     }
 }
-
-impl BootModule {
-    unsafe fn load(module_desc: bootloader::boot_info::Module) -> Self {
-        let ptr =
-            crate::memory::phys_to_virt(x86_64::PhysAddr::new(module_desc.phys_addr)).as_mut_ptr();
-        BootModule {
-            name: core::str::from_utf8(&module_desc.name)
-                .unwrap()
-                .trim_end_matches('\0')
-                .into(),
-            data: core::slice::from_raw_parts_mut(ptr, module_desc.len),
-        }
-    }
-}
