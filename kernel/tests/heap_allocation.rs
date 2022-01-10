@@ -17,11 +17,6 @@ fn main(boot_info: &'static mut BootInfo) -> ! {
     loop {}
 }
 
-// #[panic_handler]
-// fn panic(info: &PanicInfo) -> ! {
-//     kernel::test::test_panic_handler(info);
-// }
-
 #[test_case]
 fn boxed_values() {
     use alloc::boxed::Box;

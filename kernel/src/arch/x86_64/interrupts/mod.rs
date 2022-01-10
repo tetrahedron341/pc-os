@@ -12,7 +12,7 @@ pub static PICS: spin::Mutex<ChainedPics> =
 
 const TIMER_VEC: u8 = PIC_1_OFFSET;
 const KEYBOARD_VEC: u8 = PIC_1_OFFSET + 1;
-const MOUSE_VEC: u8 = PIC_2_OFFSET + 4;
+// const MOUSE_VEC: u8 = PIC_2_OFFSET + 4;
 
 macro_rules! save_regs {
     ($handler:ident) => {{
