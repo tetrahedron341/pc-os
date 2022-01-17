@@ -1,6 +1,4 @@
-use x86_64::structures::paging::{
-    mapper::MapToError, FrameAllocator, Mapper, Page, PageTableFlags, Size4KiB,
-};
+use x86_64::structures::paging::{mapper::MapToError, Page, Size4KiB};
 use x86_64::VirtAddr;
 
 mod bump;
@@ -37,9 +35,8 @@ fn alloc_err(err: alloc::alloc::Layout) -> ! {
     panic!("ALLOC ERROR: {:?}", err)
 }
 
-pub fn init_heap(
-    mapper: &mut impl Mapper<Size4KiB>,
-    frame_allocator: &mut impl FrameAllocator<Size4KiB>,
+pub fn init_heap(// mapper: &mut impl Mapper<Size4KiB>,
+    // frame_allocator: &mut impl FrameAllocator<Size4KiB>,
 ) -> Result<(), MapToError<Size4KiB>> {
     let page_range = {
         let heap_start = VirtAddr::new(HEAP_START as u64);
@@ -50,12 +47,10 @@ pub fn init_heap(
     };
 
     for page in page_range {
-        let frame = frame_allocator
-            .allocate_frame()
-            .ok_or(MapToError::FrameAllocationFailed)?;
-        let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE;
+        let frame =
+            crate::arch::memory::allocate_frame().ok_or(MapToError::FrameAllocationFailed)?;
         unsafe {
-            mapper.map_to(page, frame, flags, frame_allocator)?.flush();
+            crate::arch::memory::map_page(page, frame);
         }
     }
 
