@@ -1,7 +1,11 @@
 //! Entry point for Philipp Oppermann's bootloader crate
 
+use core::mem::MaybeUninit;
+
 use bootloader::BootInfo;
 
+use crate::arch::memory::mmap::MemoryRegion;
+use crate::arch::{self, memory};
 use crate::boot::BootModule;
 
 cfg_if::cfg_if! {
@@ -24,16 +28,23 @@ cfg_if::cfg_if! {
 }
 
 fn initialize(boot_info: &'static mut bootloader::BootInfo) -> crate::init::InitServices {
-    super::interrupts::init_idt();
-    super::gdt::init();
-    unsafe {
-        super::memory::init(
-            boot_info.recursive_index.into_option().unwrap(),
-            &boot_info.memory_regions,
-        )
+    arch::x86_64::interrupts::init_idt();
+    arch::x86_64::gdt::init();
+
+    let mmap: &'static [MemoryRegion] = {
+        static mut MMAP_BUFFER: [MaybeUninit<MemoryRegion>; 256] = MaybeUninit::uninit_array();
+        let mmap = unsafe {
+            MaybeUninit::slice_assume_init_mut(&mut MMAP_BUFFER[..boot_info.memory_regions.len()])
+        };
+        for (i, &r) in boot_info.memory_regions.iter().enumerate() {
+            mmap[i] = r.into();
+        }
+        mmap
     };
+
+    unsafe { arch::x86_64::memory::init(boot_info.recursive_index.into_option().unwrap(), mmap) };
     crate::allocator::init_heap().unwrap();
-    super::syscall::init();
+    arch::x86_64::syscall::init();
 
     let modules = boot_info
         .modules
@@ -59,13 +70,36 @@ fn initialize(boot_info: &'static mut bootloader::BootInfo) -> crate::init::Init
 }
 
 unsafe fn load_module(module_desc: bootloader::boot_info::Module) -> BootModule {
-    let ptr =
-        super::memory::phys_to_virt(x86_64::PhysAddr::new(module_desc.phys_addr)).as_mut_ptr();
+    let ptr = arch::x86_64::memory::phys_to_virt(x86_64::PhysAddr::new(module_desc.phys_addr))
+        .as_mut_ptr();
     BootModule {
         name: core::str::from_utf8(&module_desc.name)
             .unwrap()
             .trim_end_matches('\0')
             .into(),
         data: core::slice::from_raw_parts_mut(ptr, module_desc.len),
+    }
+}
+
+impl From<bootloader::boot_info::MemoryRegionKind> for memory::mmap::MemoryKind {
+    fn from(k: bootloader::boot_info::MemoryRegionKind) -> Self {
+        use bootloader::boot_info::MemoryRegionKind::*;
+        match k {
+            Usable => memory::mmap::MemoryKind::Available,
+            Bootloader => memory::mmap::MemoryKind::Reserved,
+            UnknownBios(_) => memory::mmap::MemoryKind::Other,
+            UnknownUefi(_) => memory::mmap::MemoryKind::Other,
+            _ => memory::mmap::MemoryKind::Other,
+        }
+    }
+}
+
+impl From<bootloader::boot_info::MemoryRegion> for memory::mmap::MemoryRegion {
+    fn from(r: bootloader::boot_info::MemoryRegion) -> Self {
+        memory::mmap::MemoryRegion {
+            start: r.start as usize,
+            len: (r.end - r.start) as usize,
+            kind: r.kind.into(),
+        }
     }
 }

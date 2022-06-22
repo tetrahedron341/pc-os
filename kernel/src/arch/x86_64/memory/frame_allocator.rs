@@ -1,5 +1,5 @@
+use super::mmap::{MemoryKind, MemoryRegion};
 use super::PhysAddr;
-use bootloader::boot_info::{MemoryRegion, MemoryRegionKind, MemoryRegions};
 use x86_64::structures::paging::{FrameAllocator, PhysFrame, Size4KiB};
 
 pub struct BootInfoFrameAllocator {
@@ -8,7 +8,7 @@ pub struct BootInfoFrameAllocator {
 }
 
 impl BootInfoFrameAllocator {
-    pub unsafe fn init(memory_map: &'static MemoryRegions) -> Self {
+    pub unsafe fn init(memory_map: &'static [MemoryRegion]) -> Self {
         BootInfoFrameAllocator {
             memory_map,
             next: 0,
@@ -17,11 +17,11 @@ impl BootInfoFrameAllocator {
 
     fn usable_frames(&self) -> impl Iterator<Item = PhysFrame> {
         let regions = self.memory_map.iter();
-        let usable_regions = regions.filter(|r| r.kind == MemoryRegionKind::Usable);
-        let addr_ranges = usable_regions.map(|r| r.start..r.end);
+        let usable_regions = regions.filter(|r| r.kind == MemoryKind::Available);
+        let addr_ranges = usable_regions.map(|r| r.start..r.start + r.len);
         let frame_addresses = addr_ranges.flat_map(|r| r.step_by(4096));
 
-        frame_addresses.map(|a| PhysFrame::containing_address(PhysAddr::new(a)))
+        frame_addresses.map(|a| PhysFrame::containing_address(PhysAddr::new(a as u64)))
     }
 }
 
