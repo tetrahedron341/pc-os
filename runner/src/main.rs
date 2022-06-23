@@ -5,7 +5,9 @@ use std::{
     process::Command,
 };
 
-const RUN_ARGS: &[&str] = &["-s", "-serial", "stdio", "-vga", "std", "-m", "1024"];
+const RUN_ARGS: &[&str] = &[
+    "-s", "-serial", "stdio", "-vga", "std", "-m", "1024", "-d", "int",
+];
 
 const TEST_ARGS: &[&str] = &[
     "-device",
