@@ -10,6 +10,7 @@
 #![feature(maybe_uninit_uninit_array)]
 #![feature(maybe_uninit_slice)]
 #![feature(const_maybe_uninit_uninit_array)]
+#![feature(mixed_integer_ops)]
 #![test_runner(crate::test::test_runner)]
 #![allow(clippy::new_without_default)]
 #![reexport_test_harness_main = "test_main"]

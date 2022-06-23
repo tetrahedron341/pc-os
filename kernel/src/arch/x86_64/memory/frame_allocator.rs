@@ -15,6 +15,10 @@ impl BootInfoFrameAllocator {
         }
     }
 
+    pub fn free_pages(&self) -> usize {
+        self.usable_frames().fold(0, |l, _| l + 1)
+    }
+
     fn usable_frames(&self) -> impl Iterator<Item = PhysFrame> {
         let regions = self.memory_map.iter();
         let usable_regions = regions.filter(|r| r.kind == MemoryKind::Available);

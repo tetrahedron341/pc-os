@@ -1,12 +1,17 @@
+use alloc::boxed::Box;
 use alloc::vec::Vec;
 
 use crate::boot::BootModule;
 use crate::file;
 use crate::println;
 use crate::video;
+use crate::video::framebuffer::GfxRectangle;
+use crate::video::framebuffer::Pixel;
+use crate::video::Framebuffer;
 
 pub struct InitServices {
     pub modules: Vec<BootModule>,
+    pub framebuffer: Option<Box<dyn Framebuffer + Send + Sync>>,
 }
 
 pub fn kernel_main(init_services: InitServices) -> ! {
@@ -17,40 +22,36 @@ pub fn kernel_main(init_services: InitServices) -> ! {
         crate::arch::loop_forever();
     }
 
-    {
-        let mut screen = video::vesa::lock_screen().unwrap();
-        let width = screen.width();
-        let height = screen.height();
-        screen.draw_rect_with(0, 0, width, height, |x, y, _| {
+    if let Some(mut fb) = init_services.framebuffer {
+        let width = fb.info().width;
+        let height = fb.info().height;
+        let bg_rect = GfxRectangle::with(width, height, |x, y| {
             let u = x as f64 / width as f64;
             let v = y as f64 / height as f64;
-            (((1.0 - u) * 255.9) as u8, 0, ((1.0 - v) * 255.9) as u8)
-            // let n = x+y;
-            // (
-            //     if n % 8 < 4 {255} else {0},
-            //     if n % 16 < 8 {255} else {0},
-            //     if n % 32 < 16 {255} else {0},
+            Pixel::new_rgb(((1.0 - u) * 255.9) as u8, 0, ((1.0 - v) * 255.9) as u8)
+            // let n = x + y;
+            // Pixel::new_rgb(
+            //     if n % 8 < 4 { 255 } else { 0 },
+            //     if n % 16 < 8 { 255 } else { 0 },
+            //     if n % 32 < 16 { 255 } else { 0 },
             // )
         });
-    }
+        fb.blit(&bg_rect, (0, 0));
 
-    {
-        if let Some(console) = video::console::CONSOLE.lock().as_mut() {
-            for r in 0..16 {
-                for c in 0..32 {
-                    console.write_glyph(r * 32 + c);
-                }
-                console.newline();
+        let mut console = video::console::Console::new(fb as Box<dyn Framebuffer + Send>);
+
+        for r in 0..16 {
+            for c in 0..32 {
+                console.write_glyph(r * 32 + c);
             }
+            console.newline();
         }
+
+        *video::console::CONSOLE.lock() = Some(console);
     }
 
-    let (width, height) = {
-        let screen = video::vesa::lock_screen().unwrap();
-        (screen.width(), screen.height())
-    };
     println!();
-    println!("Hello from {}x{} VESA!", width, height);
+    println!("Hello world!");
 
     println!("Loaded boot modules: {:#?}", init_services.modules);
     let initrd = init_services

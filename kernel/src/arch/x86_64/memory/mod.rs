@@ -26,8 +26,13 @@ static MAPPER: OnceCell<Mutex<RecursivePageTable>> = OnceCell::uninit();
 pub(super) unsafe fn init(recursive_index: u16, memory_map: &'static [MemoryRegion]) {
     let lvl_4_page_table = get_page_table(recursive_index);
     MAPPER.init_once(|| Mutex::new(RecursivePageTable::new(lvl_4_page_table).unwrap()));
-    FRAME_ALLOCATOR
-        .init_once(|| Mutex::new(frame_allocator::BootInfoFrameAllocator::init(memory_map)));
+
+    let falloc = frame_allocator::BootInfoFrameAllocator::init(memory_map);
+    crate::serial_println!(
+        "[arch::x86_64::memory::init] Free memory: {} KB",
+        falloc.free_pages() * 4
+    );
+    FRAME_ALLOCATOR.init_once(|| Mutex::new(falloc));
 }
 
 /// Given a 9-bit page table index `xxx` such that `0oxxx_xxx_xxx_xxx_0000` points to the level 4 page table, create a pointer to that page table.

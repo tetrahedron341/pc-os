@@ -92,6 +92,7 @@ fn _start() -> ! {
 
     crate::init::kernel_main(crate::init::InitServices {
         modules: alloc::vec![],
+        framebuffer: None,
     });
 }
 
