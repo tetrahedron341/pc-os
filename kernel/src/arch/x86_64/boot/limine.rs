@@ -1,10 +1,8 @@
 use core::mem::MaybeUninit;
 
-use x86_64::structures::paging::PageTableFlags;
-
 use crate::arch::{
     self,
-    memory::{self, mmap::MemoryRegion},
+    memory::{self, mmap::MemoryRegion, VirtAddr},
 };
 
 static MMAP_REQUEST: limine::LimineMmapRequest = limine::LimineMmapRequest::new(0);
@@ -37,36 +35,7 @@ fn _start() -> ! {
         .expect("HHDM request failed")
         .offset;
 
-    // Set up a recursive page table index
-    let (cr3, _cr3flags) = x86_64::registers::control::Cr3::read();
-    let lvl4_page_table = unsafe {
-        let ptr = (cr3.start_address().as_u64() + phys_mem_start)
-            as *mut x86_64::structures::paging::PageTable;
-        ptr.as_mut().unwrap()
-    };
-    // Find the highest unused level 4 entry. It will be used as the recursive index.
-    let (recursive_index, recursive_entry) = lvl4_page_table
-        .iter_mut()
-        .enumerate()
-        .filter_map(|(i, pte)| {
-            // Require the recursive index to be higher half
-            if pte.is_unused() && i >= 256 {
-                Some((i as u16, pte))
-            } else {
-                None
-            }
-        })
-        .last()
-        .unwrap();
-    // The recursive index points back to the level 4 page table
-    // https://os.phil-opp.com/paging-implementation/#recursive-page-tables
-    recursive_entry.set_addr(
-        cr3.start_address(),
-        PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::GLOBAL,
-    );
-    x86_64::instructions::tlb::flush_all();
-
-    unsafe { arch::x86_64::memory::init(recursive_index, mmap) };
+    unsafe { arch::x86_64::memory::init(VirtAddr::new(phys_mem_start), mmap) };
     crate::allocator::init_heap().unwrap();
     arch::x86_64::syscall::init();
 

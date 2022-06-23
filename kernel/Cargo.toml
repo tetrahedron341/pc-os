@@ -7,7 +7,6 @@ build = "build.rs"
 
 [package.metadata.bootloader]
 physical-memory-offset = 0x0000_F000_0000_0000 # 0xFFFF_F000_0000_0000
-map-page-table-recursively = true
 minimum-framebuffer-height = 900
 map-physical-memory = true
 aslr = true

@@ -1,8 +1,7 @@
 use conquer_once::spin::OnceCell;
 use spin::Mutex;
 use x86_64::structures::paging::{
-    FrameAllocator, Mapper, Page, PageSize, PageTable, PageTableFlags, PageTableIndex, PhysFrame,
-    RecursivePageTable,
+    FrameAllocator, Mapper, OffsetPageTable, Page, PageSize, PageTable, PageTableFlags, PhysFrame,
 };
 
 use self::mmap::MemoryRegion;
@@ -15,16 +14,16 @@ pub(super) mod mmap;
 
 static FRAME_ALLOCATOR: OnceCell<Mutex<frame_allocator::BootInfoFrameAllocator>> =
     OnceCell::uninit();
-static MAPPER: OnceCell<Mutex<RecursivePageTable>> = OnceCell::uninit();
+static MAPPER: OnceCell<Mutex<OffsetPageTable>> = OnceCell::uninit();
 
 /// Initialize the kernel frame allocator and page mapper
 ///
 /// # Safety
-/// `recursive_index` must point to an actual level 4 page table.
+/// `phys_mem_offset` must point to the beginning of physical memory.
 /// `memory_map` must be a valid memory map that does not include any in-use memory pages.
-pub(super) unsafe fn init(recursive_index: u16, memory_map: &'static [MemoryRegion]) {
-    let lvl_4_page_table = get_page_table(recursive_index);
-    MAPPER.init_once(|| Mutex::new(RecursivePageTable::new(lvl_4_page_table).unwrap()));
+pub(super) unsafe fn init(phys_mem_offset: VirtAddr, memory_map: &'static [MemoryRegion]) {
+    let lvl_4_page_table = get_page_table(phys_mem_offset);
+    MAPPER.init_once(|| Mutex::new(OffsetPageTable::new(lvl_4_page_table, phys_mem_offset)));
 
     let falloc = frame_allocator::BootInfoFrameAllocator::init(memory_map);
     crate::serial_println!(
@@ -34,13 +33,14 @@ pub(super) unsafe fn init(recursive_index: u16, memory_map: &'static [MemoryRegi
     FRAME_ALLOCATOR.init_once(|| Mutex::new(falloc));
 }
 
-/// Given a 9-bit page table index `xxx` such that `0oxxx_xxx_xxx_xxx_0000` points to the level 4 page table, create a pointer to that page table.
-unsafe fn get_page_table(recursive_index: u16) -> &'static mut PageTable {
-    let index = PageTableIndex::new(recursive_index);
-    let page = Page::from_page_table_indices(index, index, index, index);
-    let addr = page.start_address();
+unsafe fn get_page_table(phys_mem_offset: VirtAddr) -> &'static mut PageTable {
+    let cr3 = x86_64::registers::control::Cr3::read()
+        .0
+        .start_address()
+        .as_u64();
+    let cr3_virt = phys_mem_offset + cr3;
 
-    &mut *addr.as_mut_ptr()
+    cr3_virt.as_mut_ptr::<PageTable>().as_mut().unwrap()
 }
 
 pub fn allocate_frame<S>() -> Option<PhysFrame<S>>
@@ -56,7 +56,7 @@ where
 pub unsafe fn map_page<S>(page: Page<S>, frame: PhysFrame<S>)
 where
     S: PageSize + core::fmt::Debug,
-    x86_64::structures::paging::RecursivePageTable<'static>: x86_64::structures::paging::Mapper<S>,
+    x86_64::structures::paging::OffsetPageTable<'static>: x86_64::structures::paging::Mapper<S>,
 {
     MAPPER
         .get()
