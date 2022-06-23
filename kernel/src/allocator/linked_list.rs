@@ -44,6 +44,12 @@ impl Heap {
 
     /// Adds the given memory region to the front of the list.
     unsafe fn add_free_region(&mut self, addr: usize, size: usize) {
+        crate::serial_println!(
+            "[alloc] Free block created at {:#X} with size {}",
+            addr,
+            size
+        );
+
         // ensure that the freed region is capable of holding ListNode
         assert_eq!(align_up(addr, mem::align_of::<ListNode>()), addr);
         assert!(size >= mem::size_of::<ListNode>());
