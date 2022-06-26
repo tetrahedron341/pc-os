@@ -42,7 +42,7 @@ limine = { version = "0.1.8", optional = true }
 x86_64 = "0.14.6"
 
 [features]
-default = ["phil_opp_bootloader"]
+default = ["limine_bootloader"]
 custom_panic = []
 custom_entry_point = []
 phil_opp_bootloader = ["bootloader"]

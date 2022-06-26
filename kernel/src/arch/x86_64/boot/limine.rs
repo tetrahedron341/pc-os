@@ -11,6 +11,19 @@ static HHDM_REQUEST: limine::LimineHhdmRequest = limine::LimineHhdmRequest::new(
 
 #[no_mangle]
 fn _start() -> ! {
+    // Enable SIMD instrucitons
+    unsafe {
+        x86_64::registers::control::Cr0::update(|r| {
+            use x86_64::registers::control::Cr0Flags;
+            r.remove(Cr0Flags::EMULATE_COPROCESSOR);
+            r.insert(Cr0Flags::MONITOR_COPROCESSOR);
+        });
+        x86_64::registers::control::Cr4::update(|r| {
+            use x86_64::registers::control::Cr4Flags;
+            r.insert(Cr4Flags::OSFXSR | Cr4Flags::OSXMMEXCPT_ENABLE);
+        });
+    }
+    crate::serial_println!("Hello world!");
     arch::x86_64::interrupts::init_idt();
     arch::x86_64::gdt::init();
 

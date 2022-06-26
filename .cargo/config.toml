@@ -1,15 +1,21 @@
 [target.'cfg(target_os = "none")']
 runner = "cargo run --package runner --"
-rustflags = ["-C", "relocation-model=pie"]
+rustflags = [
+    "-C",
+    "relocation-model=pie",
+    "-C",
+    "link-args=--image-base=0xffffffff80000000",
+]
 
 [alias]
 kbuild = "build --bin kernel --target x86_64-pc_os.json -Zbuild-std=core,alloc -Zbuild-std-features=compiler-builtins-mem"
-kimage = "run --bin kernel --target x86_64-pc_os.json -Zbuild-std=core,alloc -Zbuild-std-features=compiler-builtins-mem -- --no-boot"
+kimage = "run --release --bin kernel --target x86_64-pc_os.json -Zbuild-std=core,alloc -Zbuild-std-features=compiler-builtins-mem -- --no-boot"
 krun = "run --bin kernel --target x86_64-pc_os.json -Zbuild-std=core,alloc -Zbuild-std-features=compiler-builtins-mem"
 ktest = "test --package kernel --target x86_64-pc_os.json -Zbuild-std=core,alloc -Zbuild-std-features=compiler-builtins-mem"
 
 [env]
 OVMF_FD = { value = "OVMF-pure-efi.fd", relative = true }
+LIMINE_BIN_DIR = { value = "limine", relative = true }
 
 [unstable]
 features = ["host_dep"]
