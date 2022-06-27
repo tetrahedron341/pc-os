@@ -5,6 +5,8 @@ rustflags = [
     "relocation-model=pie",
     "-C",
     "link-args=--image-base=0xffffffff80000000",
+    "-C",
+    "code-model=kernel",
 ]
 
 [alias]
@@ -16,6 +18,8 @@ ktest = "test --package kernel --target x86_64-pc_os.json -Zbuild-std=core,alloc
 [env]
 OVMF_FD = { value = "OVMF-pure-efi.fd", relative = true }
 LIMINE_BIN_DIR = { value = "limine", relative = true }
+INITRD_DIR = { value = "initrd", relative = true }
+LIBC_DIR = { value = "libc", relative = true }
 
 [unstable]
 features = ["host_dep"]
