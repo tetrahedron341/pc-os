@@ -1,4 +1,3 @@
-pub mod context;
 mod gdt;
 mod init;
 #[path = "interrupts/mod.rs"]

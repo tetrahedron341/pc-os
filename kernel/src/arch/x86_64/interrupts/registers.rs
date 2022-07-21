@@ -1,4 +1,4 @@
-use x86_64::{structures::idt::InterruptStackFrameValue, VirtAddr};
+use x86_64::structures::idt::InterruptStackFrameValue;
 
 /// Placed on the stack by the interrupt handler functions.
 /// Used for storing/restoring CPU state during an interrupt.
@@ -26,34 +26,34 @@ pub struct Registers {
 }
 
 impl Registers {
-    /// # Safety
-    /// Must never be returned from an interrupt handler using `save_regs!`
-    pub unsafe fn empty() -> Self {
-        Registers {
-            r15: 0,
-            r14: 0,
-            r13: 0,
-            r12: 0,
-            r11: 0,
-            r10: 0,
-            r9: 0,
-            r8: 0,
-            rbp: 0,
-            rdi: 0,
-            rsi: 0,
-            rdx: 0,
-            rcx: 0,
-            rbx: 0,
-            rax: 0,
+    // /// # Safety
+    // /// Must never be returned from an interrupt handler using `save_regs!`
+    // pub unsafe fn empty() -> Self {
+    //     Registers {
+    //         r15: 0,
+    //         r14: 0,
+    //         r13: 0,
+    //         r12: 0,
+    //         r11: 0,
+    //         r10: 0,
+    //         r9: 0,
+    //         r8: 0,
+    //         rbp: 0,
+    //         rdi: 0,
+    //         rsi: 0,
+    //         rdx: 0,
+    //         rcx: 0,
+    //         rbx: 0,
+    //         rax: 0,
 
-            error_code: 0,
-            isf: InterruptStackFrameValue {
-                instruction_pointer: VirtAddr::zero(),
-                code_segment: 0,
-                cpu_flags: 0,
-                stack_pointer: VirtAddr::zero(),
-                stack_segment: 0,
-            },
-        }
-    }
+    //         error_code: 0,
+    //         isf: InterruptStackFrameValue {
+    //             instruction_pointer: VirtAddr::zero(),
+    //             code_segment: 0,
+    //             cpu_flags: 0,
+    //             stack_pointer: VirtAddr::zero(),
+    //             stack_segment: 0,
+    //         },
+    //     }
+    // }
 }

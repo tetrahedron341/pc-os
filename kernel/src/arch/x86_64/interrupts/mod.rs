@@ -144,6 +144,44 @@ pub fn init_idt() {
     IDT.get().unwrap().load();
 }
 
+// /// A wrapper type that disables interrupts for as long as it lives.
+// pub struct InterruptGuard<T = ()> {
+//     if_save: bool,
+//     inner: T,
+// }
+
+// impl<T> InterruptGuard<T> {
+//     pub fn new(inner: T) -> Self {
+//         let if_save = x86_64::instructions::interrupts::are_enabled();
+//         x86_64::instructions::interrupts::disable();
+//         InterruptGuard { if_save, inner }
+//     }
+// }
+
+// impl<T> Drop for InterruptGuard<T> {
+//     fn drop(&mut self) {
+//         let if_restore = self.if_save;
+//         if if_restore {
+//             x86_64::instructions::interrupts::enable();
+//         } else {
+//             x86_64::instructions::interrupts::disable();
+//         }
+//     }
+// }
+
+// impl<T> core::ops::Deref for InterruptGuard<T> {
+//     type Target = T;
+//     fn deref(&self) -> &Self::Target {
+//         &self.inner
+//     }
+// }
+
+// impl<T> core::ops::DerefMut for InterruptGuard<T> {
+//     fn deref_mut(&mut self) -> &mut Self::Target {
+//         &mut self.inner
+//     }
+// }
+
 #[test_case]
 fn test_breakpoint() {
     x86_64::instructions::interrupts::int3();

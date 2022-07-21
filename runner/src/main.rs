@@ -19,8 +19,6 @@ const TEST_ARGS: &[&str] = &[
 
 const QEMU_EXIT_SUCCESS_CODE: i32 = 0x10;
 
-const KERNEL_CRATE_NAME: &str = "kernel";
-
 #[derive(FromArgs)]
 /// Builds the kernel.
 struct Args {
@@ -90,7 +88,6 @@ fn main() {
 fn create_disk_images(kernel_binary_path: &Path) -> PathBuf {
     let metadata = cargo_metadata();
     assert!(metadata.is_object());
-    let kernel_manifest_path = locate_kernel_manifest(&metadata).unwrap();
     let target_directory = target_directory(&metadata).unwrap();
     let limine_dir = PathBuf::from(std::env::var("LIMINE_BIN_DIR").unwrap());
 
@@ -179,13 +176,6 @@ fn cargo_metadata() -> JsonValue {
         .unwrap()
         .stdout;
     json::parse(std::str::from_utf8(&metadata).unwrap()).unwrap()
-}
-
-fn locate_kernel_manifest(metadata: &JsonValue) -> Option<PathBuf> {
-    let kernel_package = metadata["packages"]
-        .members()
-        .find(|pkg| pkg["name"] == KERNEL_CRATE_NAME)?;
-    kernel_package["manifest_path"].as_str().map(PathBuf::from)
 }
 
 fn target_directory(metadata: &JsonValue) -> Option<PathBuf> {
