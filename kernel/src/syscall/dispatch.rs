@@ -1,3 +1,5 @@
+use crate::process::ProcessState;
+
 use super::{SyscallOp, SyscallOpCode, SyscallStatus};
 
 pub fn syscall_dispatch(op: u64, ptr: *mut u8) -> SyscallStatus {
@@ -23,12 +25,16 @@ pub fn syscall_dispatch(op: u64, ptr: *mut u8) -> SyscallStatus {
                 SyscallStatus::Error
             }
 
-            SyscallOpCode::Exit => {
-                // let executor = executor.as_mut().unwrap();
-                // executor.exit_current_process();
-                // executor.run()
-                crate::arch::loop_forever()
-            }
+            SyscallOpCode::Exit => x86_64::instructions::interrupts::without_interrupts(|| {
+                let cpu = crate::arch::cpu::this_cpu();
+                let p = cpu
+                    .try_take_process()
+                    .expect("`exit` syscall not within a process");
+                p.state = ProcessState::Killed;
+                cpu.return_from_process(p);
+
+                panic!("Tried to run a killed process")
+            }),
         }
     } else {
         crate::println!("Invalid operation: {:#X}", op);

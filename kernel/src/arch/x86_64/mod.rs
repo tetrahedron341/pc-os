@@ -1,4 +1,5 @@
-mod gdt;
+pub mod cpu;
+pub mod gdt;
 mod init;
 #[path = "interrupts/mod.rs"]
 mod interrupts;

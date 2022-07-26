@@ -4,7 +4,7 @@ use alloc::{boxed::Box, string::String, vec};
 
 use crate::{
     arch::{
-        self,
+        self, cpu,
         memory::{self, mmap::MemoryRegion, VirtAddr},
     },
     video::Framebuffer,
@@ -19,9 +19,14 @@ static MODULES_REQUEST: limine::LimineModuleRequest = limine::LimineModuleReques
 static FRAMEBUFFER_REQUEST: limine::LimineFramebufferRequest =
     limine::LimineFramebufferRequest::new(0);
 
+// With the HHDM feature on, 4-level paging, and KASLR enabled, our higher half looks like:
+//
+// 0xffff8000_00000000..=0xffff8fff_ffffffff -- HHDM is somewhere in here
+// 0xffffffff_80000000..=0xffffffff_ffffffff -- Kernel is somewhere in here
+
 #[no_mangle]
 fn _start() -> ! {
-    // Enable SIMD instrucitons
+    // Enable SIMD instructions
     unsafe {
         x86_64::registers::control::Cr0::update(|r| {
             use x86_64::registers::control::Cr0Flags;
@@ -120,6 +125,8 @@ fn _start() -> ! {
         String::from_utf8_lossy(&vendor_string)
     );
 
+    x86_64::instructions::interrupts::disable();
+    cpu::init_this_cpu();
     x86_64::instructions::interrupts::enable();
 
     const SERIAL_LOG_MIN: log::LevelFilter = log::LevelFilter::Info;
