@@ -1,15 +1,26 @@
-use core::arch::{asm, global_asm};
+use core::arch::asm;
 
 static mut STACK: [u8; 32 * 1024] = [0; 32 * 1024];
-#[no_mangle]
 static mut SYSCALL_RSP: *const u8 = unsafe { &STACK[STACK.len() - 8] as *const u8 };
-#[no_mangle]
 static mut RETURN_RSP: *const u8 = core::ptr::null();
 
-global_asm!(include_str!("syscall.s"), options(raw));
-
-extern "C" {
-    fn _syscall_handler();
+#[naked]
+unsafe extern "C" fn _syscall_handler() {
+    asm! {
+        "mov [{ret_rsp} + rip], rsp",
+        "mov rsp, [{sys_rsp} + rip]",
+        "push rcx",
+        "push r11",
+        "call syscall_handler",
+        "pop r11",
+        "pop rcx",
+        "mov [{sys_rsp} + rip], rsp",
+        "mov rsp, [{ret_rsp} + rip]",
+        "sysretq",
+        sys_rsp = sym SYSCALL_RSP,
+        ret_rsp = sym RETURN_RSP,
+        options(noreturn)
+    }
 }
 
 pub fn init() {
