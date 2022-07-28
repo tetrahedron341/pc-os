@@ -104,6 +104,7 @@ fn init_process(init_elf: &[u8]) -> Result<(), String> {
 
     let mut exec = crate::task::executor::Executor::new();
     exec.spawn(p);
+    exec.spawn(crate::task::keyboard::print_keypresses());
 
     exec.run()
 }
