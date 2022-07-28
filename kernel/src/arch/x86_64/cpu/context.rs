@@ -14,8 +14,8 @@ impl Context {
     /// Save the current CPU state and perform a context switch.
     /// # Safety
     /// The target context must be valid and not cause any UB.
+    #[naked]
     pub unsafe extern "C" fn switch(save: &mut *mut Context, load: *mut Context) {
-        let save = save as *mut *mut Context;
         asm! {
             "push rax",
             "push rbx",
@@ -32,9 +32,9 @@ impl Context {
             "push r13",
             "push r14",
             "push r15",
-            "mov [{save}], rsp",
+            "mov [rdi], rsp",
 
-            "mov rsp, {load}",
+            "mov rsp, rsi",
             "pop r15",
             "pop r14",
             "pop r13",
@@ -51,9 +51,7 @@ impl Context {
             "pop rbx",
             "pop rax",
             "ret",
-
-            save = in(reg) save,
-            load = in(reg) load,
+            options(noreturn)
         }
     }
 }
