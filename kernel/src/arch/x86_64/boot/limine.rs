@@ -1,12 +1,13 @@
 use core::mem::MaybeUninit;
 
-use alloc::{boxed::Box, string::String, vec};
+use alloc::{boxed::Box, string::String, vec, vec::Vec};
 
 use crate::{
     arch::{
         self, cpu,
         memory::{self, mmap::MemoryRegion, VirtAddr},
     },
+    boot::BootModule,
     video::Framebuffer,
 };
 
@@ -24,9 +25,35 @@ static FRAMEBUFFER_REQUEST: limine::LimineFramebufferRequest =
 // 0xffff8000_00000000..=0xffff8fff_ffffffff -- HHDM is somewhere in here
 // 0xffffffff_80000000..=0xffffffff_ffffffff -- Kernel is somewhere in here
 
+const SERIAL_LOG_MIN: log::LevelFilter = log::LevelFilter::Info;
+const CONSOLE_LOG_MIN: log::LevelFilter = log::LevelFilter::Warn;
+
 #[no_mangle]
 fn _start() -> ! {
-    // Enable SIMD instructions
+    x86_64::instructions::interrupts::disable();
+    enable_simd();
+    arch::x86_64::gdt::init();
+    arch::x86_64::interrupts::init_idt();
+    arch::x86_64::syscall::init();
+
+    unsafe { arch::x86_64::memory::init(get_phys_mem_offset(), get_mmap()) };
+    crate::allocator::init_heap().unwrap();
+
+    crate::log::init(SERIAL_LOG_MIN, CONSOLE_LOG_MIN, 128);
+    let modules = get_modules();
+
+    let framebuffer = unsafe { get_framebuffer() }
+        .map(|fb| Box::new(fb) as Box<dyn Framebuffer + Send + Sync + 'static>);
+    cpu::init_this_cpu();
+    x86_64::instructions::interrupts::enable();
+
+    crate::init::kernel_main(crate::init::InitServices {
+        modules,
+        framebuffer,
+    });
+}
+
+fn enable_simd() {
     unsafe {
         x86_64::registers::control::Cr0::update(|r| {
             use x86_64::registers::control::Cr0Flags;
@@ -38,34 +65,40 @@ fn _start() -> ! {
             r.insert(Cr4Flags::OSFXSR | Cr4Flags::OSXMMEXCPT_ENABLE);
         });
     }
-    arch::x86_64::gdt::init();
-    arch::x86_64::interrupts::init_idt();
+}
 
+/// # Safety
+/// Must be called only once
+unsafe fn get_mmap() -> &'static mut [MemoryRegion] {
     let mmap_response = MMAP_REQUEST
         .get_response()
         .get()
         .expect("MMAP request failed");
     let limine_mmap = mmap_response.mmap().expect("MMAP request failed");
-    let mmap: &'static [MemoryRegion] = {
-        static mut MMAP_BUFFER: [MaybeUninit<MemoryRegion>; 256] = MaybeUninit::uninit_array();
-        let mmap =
-            unsafe { MaybeUninit::slice_assume_init_mut(&mut MMAP_BUFFER[..limine_mmap.len()]) };
-        for (i, r) in limine_mmap.iter().enumerate() {
-            mmap[i] = r.into();
-        }
-        mmap
-    };
 
+    const MMAP_BUFFER_LEN: usize = 256;
+    static mut MMAP_BUFFER: [MaybeUninit<MemoryRegion>; MMAP_BUFFER_LEN] =
+        MaybeUninit::uninit_array();
+    assert!(limine_mmap.len() <= MMAP_BUFFER_LEN, "Memory map too long");
+    let mmap = MaybeUninit::slice_assume_init_mut(&mut MMAP_BUFFER[..limine_mmap.len()]);
+    for (i, r) in limine_mmap.iter().enumerate() {
+        mmap[i] = r.into();
+    }
+
+    mmap
+}
+
+fn get_phys_mem_offset() -> VirtAddr {
     let phys_mem_start = HHDM_REQUEST
         .get_response()
         .get()
         .expect("HHDM request failed")
         .offset;
 
-    unsafe { arch::x86_64::memory::init(VirtAddr::new(phys_mem_start), mmap) };
-    crate::allocator::init_heap().unwrap();
-    arch::x86_64::syscall::init();
+    VirtAddr::new(phys_mem_start)
+}
 
+fn get_modules() -> Vec<BootModule> {
     let limine_modules = MODULES_REQUEST
         .get_response()
         .get()
@@ -95,49 +128,20 @@ fn _start() -> ! {
 
         modules.push(crate::boot::BootModule { name, data });
     }
+    modules
+}
 
-    let framebuffer = FRAMEBUFFER_REQUEST.get_response().get().and_then(|resp| {
+/// # Safety
+/// Call only once.
+unsafe fn get_framebuffer() -> Option<impl Framebuffer + Send + Sync + 'static> {
+    FRAMEBUFFER_REQUEST.get_response().get().and_then(|resp| {
         resp.framebuffers().map(|fbs| unsafe {
             let fb = &fbs[0] as *const _;
             Box::new(FramebufferImpl(
                 &mut *(fb as *mut limine::LimineFramebuffer),
             )) as Box<dyn Framebuffer + Send + Sync + 'static>
         })
-    });
-    // unsafe {
-    //     crate::video::vesa::init_screen(boot_info.framebuffer.as_mut().unwrap());
-    // }
-    // let console =
-    //     crate::video::vesa::console::Console::new(crate::video::vesa::SCREEN.get().unwrap());
-    // crate::video::console::CONSOLE.lock().replace(console);
-
-    let vendor_cpuid = unsafe { core::arch::x86_64::__cpuid(0) };
-    let vendor_string = unsafe {
-        core::mem::transmute::<[u32; 3], [u8; 12]>([
-            vendor_cpuid.ebx,
-            vendor_cpuid.edx,
-            vendor_cpuid.ecx,
-        ])
-    };
-
-    crate::serial_println!(
-        "CPU Vendor ID string: {:?}",
-        String::from_utf8_lossy(&vendor_string)
-    );
-
-    x86_64::instructions::interrupts::disable();
-    cpu::init_this_cpu();
-    x86_64::instructions::interrupts::enable();
-
-    const SERIAL_LOG_MIN: log::LevelFilter = log::LevelFilter::Info;
-    const CONSOLE_LOG_MIN: log::LevelFilter = log::LevelFilter::Warn;
-
-    crate::log::init(SERIAL_LOG_MIN, CONSOLE_LOG_MIN, 128);
-
-    crate::init::kernel_main(crate::init::InitServices {
-        modules,
-        framebuffer,
-    });
+    })
 }
 
 impl From<limine::LimineMemoryMapEntryType> for memory::mmap::MemoryKind {
