@@ -323,6 +323,7 @@ dependencies = [
  "log",
  "pc-keyboard",
  "pic8259",
+ "plain",
  "spin 0.9.3",
  "uart_16550",
  "volatile 0.2.7",
