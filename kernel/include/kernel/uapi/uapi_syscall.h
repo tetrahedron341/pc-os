@@ -5,5 +5,6 @@
 #define SYS_PING 0
 #define SYS_PUTCHAR 1
 #define SYS_GETCHAR 2
-#define SYS_EXIT 127
+#define SYS_SLEEP_MS 3
 
+#define SYS_EXIT 127

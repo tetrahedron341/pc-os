@@ -28,10 +28,10 @@ impl Cpu {
         self.id
     }
 
-    pub fn run_process(&mut self, proc: &mut Process) {
+    pub fn run_process(&mut self, proc: &mut Process, waker: core::task::Waker) {
         proc.space.load();
         let load = proc.context;
-        proc.state = ProcessState::Running;
+        proc.state = ProcessState::Running(waker);
         self.process = Some(NonNull::from(proc));
         unsafe { Context::switch(&mut self.scheduler_ctx, load) }
         self.scheduler_ctx = core::ptr::null_mut();

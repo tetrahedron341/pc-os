@@ -1,12 +1,12 @@
 use super::{Task, TaskId};
 use alloc::{collections::BTreeMap, sync::Arc};
-use core::task::{Context, Poll, Waker};
+use core::task::Waker;
 use crossbeam_queue::ArrayQueue;
 
 pub struct Executor {
-    tasks: BTreeMap<TaskId, Task>,
-    task_queue: Arc<ArrayQueue<TaskId>>,
-    waker_cache: BTreeMap<TaskId, Waker>,
+    pub(super) tasks: BTreeMap<TaskId, Task>,
+    pub(super) task_queue: Arc<ArrayQueue<TaskId>>,
+    pub(super) waker_cache: BTreeMap<TaskId, Waker>,
 }
 
 impl Executor {
@@ -26,66 +26,22 @@ impl Executor {
         }
         self.task_queue.push(id).expect("queue full");
     }
-
-    pub fn run_ready_tasks(&mut self) {
-        let Self {
-            tasks,
-            task_queue,
-            waker_cache,
-        } = self;
-
-        while let Ok(task_id) = task_queue.pop() {
-            let task = match tasks.get_mut(&task_id) {
-                Some(task) => task,
-                None => continue,
-            };
-
-            let waker = waker_cache
-                .entry(task_id)
-                .or_insert_with(|| TaskWaker::new_as_waker(task_id, task_queue.clone()));
-            let mut cx = Context::from_waker(waker);
-            match task.poll(&mut cx) {
-                Poll::Ready(()) => {
-                    tasks.remove(&task_id);
-                    waker_cache.remove(&task_id);
-                }
-                Poll::Pending => {}
-            }
-        }
-    }
-
-    /// Let the executor take control of this CPU core.
-    pub fn run(&mut self) -> ! {
-        loop {
-            self.run_ready_tasks();
-            self.sleep_if_idle();
-        }
-    }
-
-    fn sleep_if_idle(&self) {
-        x86_64::instructions::interrupts::disable();
-        if self.task_queue.is_empty() {
-            x86_64::instructions::interrupts::enable_and_hlt();
-        } else {
-            x86_64::instructions::interrupts::enable();
-        }
-    }
 }
 
-struct TaskWaker {
+pub(super) struct TaskWaker {
     task_id: TaskId,
     task_queue: Arc<ArrayQueue<TaskId>>,
 }
 
 impl TaskWaker {
-    fn new_as_waker(task_id: TaskId, task_queue: Arc<ArrayQueue<TaskId>>) -> Waker {
+    pub fn new_as_waker(task_id: TaskId, task_queue: Arc<ArrayQueue<TaskId>>) -> Waker {
         Waker::from(Arc::new(TaskWaker {
             task_id,
             task_queue,
         }))
     }
 
-    fn wake_task(&self) {
+    pub fn wake_task(&self) {
         self.task_queue.push(self.task_id).expect("task queue full");
     }
 }
