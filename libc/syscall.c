@@ -1,21 +1,46 @@
 #include <stdint.h>
+#include "syscall.h"
 
-uint64_t syscall(uint64_t a, char *target)
+uint64_t __syscall0(uint64_t op)
 {
-    long long r14_out;
-    char *r15_out;
+  return __syscall4(op, 0, 0, 0, 0);
+}
 
-    asm(
-        "movq %2, %%r14 \n"
-        "movq %3, %%r15 \n"
-        "syscall \n"
-        "movq %%r14, %0 \n"
-        "movq %%r15, %1"
+uint64_t __syscall1(uint64_t op, uint64_t arg0)
+{
+  return __syscall4(op, arg0, 0, 0, 0);
+}
 
-        : "=r"(r14_out),
-          "=r"(r15_out)
-        : "r"(a),
-          "r"(target));
+uint64_t __syscall2(uint64_t op, uint64_t arg0, uint64_t arg1)
+{
+  return __syscall4(op, arg0, arg1, 0, 0);
+}
 
-    return r14_out;
+uint64_t __syscall3(uint64_t op, uint64_t arg0, uint64_t arg1, uint64_t arg2)
+{
+  return __syscall4(op, arg0, arg1, arg2, 0);
+}
+
+uint64_t __syscall4(uint64_t op, uint64_t arg0, uint64_t arg1, uint64_t arg2, uint64_t arg3)
+{
+  uint64_t rax_out;
+
+  asm(
+      "movq %1, %%rax \n"
+      "movq %2, %%rdi \n"
+      "movq %3, %%rsi \n"
+      "movq %4, %%rdx \n"
+      "movq %5, %%r8 \n"
+      "syscall \n"
+      "movq %%rax, %0 \n"
+
+      : "=r"(rax_out)
+      : "r"(op),
+        "r"(arg0),
+        "r"(arg1),
+        "r"(arg2),
+        "r"(arg3)
+      : "rax", "rdi", "rsi", "rdx", "r8");
+
+  return rax_out;
 }

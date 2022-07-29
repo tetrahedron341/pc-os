@@ -4,22 +4,22 @@ pub use dispatch::syscall_dispatch;
 use crate::uapi::*;
 use core::convert::TryFrom;
 
-#[repr(u8)]
+#[repr(u32)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum SyscallOpCode {
     /// Print out "Ping!" to the console screen
-    Ping = SYS_PING as u8,
-    PutChar = SYS_PUTCHAR as u8,
-    GetKbdCode = SYS_GETCHAR as u8,
-    SleepMs = SYS_SLEEP_MS as u8,
+    Ping = SYS_PING as u32,
+    PutChar = SYS_PUTCHAR as u32,
+    GetKbdCode = SYS_GETCHAR as u32,
+    SleepMs = SYS_SLEEP_MS as u32,
 
     /// Exits the current process
-    Exit = SYS_EXIT as u8,
+    Exit = SYS_EXIT as u32,
 }
 
-impl TryFrom<u8> for SyscallOpCode {
+impl TryFrom<u32> for SyscallOpCode {
     type Error = ();
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
+    fn try_from(value: u32) -> Result<Self, Self::Error> {
         use SyscallOpCode::*;
         match value {
             SYS_PING => Ok(Ping),
@@ -37,35 +37,13 @@ impl TryFrom<u8> for SyscallOpCode {
 #[derive(Debug, Clone, Copy)]
 pub struct SyscallOp {
     pub opcode: SyscallOpCode,
-    pub arg_u8: u8,
-    pub arg_u16: u16,
-    pub arg_u32: u32,
+    pub args: [u64; 4],
 }
 
-impl TryFrom<u64> for SyscallOp {
-    type Error = ();
-    fn try_from(value: u64) -> Result<Self, Self::Error> {
-        #[repr(C, packed)]
-        #[allow(dead_code)]
-        struct SyscallOpIntermediate {
-            pub opcode: u8,
-            pub arg_u8: u8,
-            pub arg_u16: u16,
-            pub arg_u32: u32,
-        }
-        let SyscallOpIntermediate {
-            opcode,
-            arg_u8,
-            arg_u16,
-            arg_u32,
-        } = unsafe { core::mem::transmute(value) };
-        let opcode = SyscallOpCode::try_from(opcode)?;
-        Ok(SyscallOp {
-            opcode,
-            arg_u8,
-            arg_u16,
-            arg_u32,
-        })
+impl SyscallOp {
+    pub fn new(opcode: u32, args: [u64; 4]) -> Option<Self> {
+        let opcode = SyscallOpCode::try_from(opcode).ok()?;
+        Some(SyscallOp { opcode, args })
     }
 }
 

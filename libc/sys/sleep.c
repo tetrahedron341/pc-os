@@ -4,5 +4,5 @@
 
 void sleep_ms(uint32_t ms)
 {
-    syscall(SYS_SLEEP_MS | (uint64_t)ms << 32, (char *)0);
+    __syscall1(SYS_SLEEP_MS, (uint64_t)ms);
 }
