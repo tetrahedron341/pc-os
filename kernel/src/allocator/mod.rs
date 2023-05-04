@@ -8,7 +8,7 @@ mod linked_list;
 use fixed_size_block_allocator::FixedSizeBlockAllocator as Heap;
 
 pub const HEAP_START: usize = 0x4444_4444_0000;
-pub const HEAP_SIZE: usize = 256 * 1024;
+pub const HEAP_SIZE: usize = 64 * 1024 * 1024; // 64 MB
 
 /// A wrapper around spin::Mutex to permit trait implementations.
 pub struct Locked<A> {

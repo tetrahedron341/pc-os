@@ -2,11 +2,14 @@
 
 use core::mem::MaybeUninit;
 
+use alloc::boxed::Box;
 use bootloader::BootInfo;
 
 use crate::arch::memory::mmap::MemoryRegion;
 use crate::arch::{self, memory};
 use crate::boot::BootModule;
+use crate::video::framebuffer::PixelFormat;
+use crate::video::Framebuffer;
 
 cfg_if::cfg_if! {
     if #[cfg(not(test))] {
@@ -52,13 +55,6 @@ fn initialize(boot_info: &'static mut bootloader::BootInfo) -> crate::init::Init
         .map(|m| unsafe { load_module(*m) })
         .collect();
 
-    unsafe {
-        crate::video::vesa::init_screen(boot_info.framebuffer.as_mut().unwrap());
-    }
-    let console =
-        crate::video::vesa::console::Console::new(crate::video::vesa::SCREEN.get().unwrap());
-    crate::video::console::CONSOLE.lock().replace(console);
-
     x86_64::instructions::interrupts::enable();
 
     const SERIAL_LOG_MIN: log::LevelFilter = log::LevelFilter::Info;
@@ -66,7 +62,19 @@ fn initialize(boot_info: &'static mut bootloader::BootInfo) -> crate::init::Init
 
     crate::log::init(SERIAL_LOG_MIN, CONSOLE_LOG_MIN, 128);
 
-    crate::init::InitServices { modules }
+    crate::serial_println!("[phil_opp_bootloader] Allocating Box<FB>");
+
+    let framebuffer: Option<Box<dyn Framebuffer + Send + Sync>> = boot_info
+        .framebuffer
+        .as_mut()
+        .map(|fb: &'static mut _| Box::new(fb) as Box<dyn Framebuffer + Send + Sync>);
+
+    crate::serial_println!("[phil_opp_bootloader] Handing over to the kernel");
+
+    crate::init::InitServices {
+        modules,
+        framebuffer,
+    }
 }
 
 unsafe fn load_module(module_desc: bootloader::boot_info::Module) -> BootModule {
@@ -100,6 +108,50 @@ impl From<bootloader::boot_info::MemoryRegion> for memory::mmap::MemoryRegion {
             start: r.start as usize,
             len: (r.end - r.start) as usize,
             kind: r.kind.into(),
+        }
+    }
+}
+
+impl crate::video::Framebuffer for bootloader::boot_info::FrameBuffer {
+    fn info(&self) -> crate::video::framebuffer::FramebufferInfo {
+        let info = bootloader::boot_info::FrameBuffer::info(self);
+        crate::video::framebuffer::FramebufferInfo {
+            buffer_len: info.byte_len,
+            bytes_per_pixel: info.bytes_per_pixel,
+            width: info.horizontal_resolution as u32,
+            height: info.vertical_resolution as u32,
+            stride: info.stride * info.bytes_per_pixel,
+            format: info.pixel_format.into(),
+        }
+    }
+
+    fn get_mut(&mut self) -> &mut [u8] {
+        self.buffer_mut()
+    }
+}
+
+impl From<bootloader::boot_info::PixelFormat> for PixelFormat {
+    fn from(fmt: bootloader::boot_info::PixelFormat) -> Self {
+        use bootloader::boot_info::PixelFormat::*;
+        match fmt {
+            RGB => PixelFormat::RGBA,
+            BGR => PixelFormat {
+                red_shift_bits: 16,
+                red_width_bits: 8,
+                green_shift_bits: 8,
+                green_width_bits: 8,
+                blue_shift_bits: 0,
+                blue_width_bits: 8,
+            },
+            U8 => PixelFormat {
+                red_shift_bits: 0,
+                red_width_bits: 0,
+                green_shift_bits: 0,
+                green_width_bits: 8,
+                blue_shift_bits: 0,
+                blue_width_bits: 0,
+            },
+            _ => PixelFormat::RGBA,
         }
     }
 }
