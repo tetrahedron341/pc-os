@@ -1,9 +1,11 @@
-use x86_64::structures::paging::{Mapper, mapper::MapToError, FrameAllocator, Size4KiB, Page, PageTableFlags};
+use x86_64::structures::paging::{
+    mapper::MapToError, FrameAllocator, Mapper, Page, PageTableFlags, Size4KiB,
+};
 use x86_64::VirtAddr;
 
 mod bump;
-mod linked_list;
 mod fixed_size_block_allocator;
+mod linked_list;
 
 use fixed_size_block_allocator::FixedSizeBlockAllocator as Heap;
 
@@ -38,8 +40,7 @@ fn alloc_err(err: alloc::alloc::Layout) -> ! {
 pub fn init_heap(
     mapper: &mut impl Mapper<Size4KiB>,
     frame_allocator: &mut impl FrameAllocator<Size4KiB>,
-) -> Result<(), MapToError<Size4KiB>> 
-{
+) -> Result<(), MapToError<Size4KiB>> {
     let page_range = {
         let heap_start = VirtAddr::new(HEAP_START as u64);
         let heap_end = heap_start + HEAP_SIZE;

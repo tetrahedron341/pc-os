@@ -1,6 +1,8 @@
-[unstable]
-build-std = ["core", "compiler_builtins", "alloc"]
-build-std-features = ["compiler-builtins-mem"]
+[target.'cfg(target_os = "none")']
+runner = "cargo run --package boot --"
+rustflags = ["--cfg", "memchr_disable_auto_simd"]
 
-[build]
-target = "x86_64-pc_os.json"
+[alias]
+kbuild = "build --target x86_64-pc_os.json -Zbuild-std=core,alloc -Zbuild-std-features=compiler-builtins-mem"
+kimage = "run --target x86_64-pc_os.json -Zbuild-std=core,alloc -Zbuild-std-features=compiler-builtins-mem -- --no-run"
+krun = "run --target x86_64-pc_os.json -Zbuild-std=core,alloc -Zbuild-std-features=compiler-builtins-mem"
