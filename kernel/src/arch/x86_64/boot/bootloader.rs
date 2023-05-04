@@ -4,9 +4,26 @@ use bootloader::BootInfo;
 
 use crate::boot::BootModule;
 
-bootloader::entry_point!(kernel_entry);
+cfg_if::cfg_if! {
+    if #[cfg(not(test))] {
+        bootloader::entry_point!(kernel_entry);
 
-fn kernel_entry(boot_info: &'static mut BootInfo) -> ! {
+        fn kernel_entry(boot_info: &'static mut BootInfo) -> ! {
+            crate::init::kernel_main(initialize(boot_info));
+        }
+    } else {
+        bootloader::entry_point!(test_entry_point);
+
+        /// Entry point for `cargo test`
+        fn test_entry_point(boot_info: &'static mut bootloader::BootInfo) -> ! {
+            initialize(boot_info);
+            crate::test_main();
+            crate::arch::loop_forever();
+        }
+    }
+}
+
+fn initialize(boot_info: &'static mut bootloader::BootInfo) -> crate::init::InitServices {
     super::interrupts::init_idt();
     super::gdt::init();
     let mut paging_service = unsafe {
@@ -42,7 +59,7 @@ fn kernel_entry(boot_info: &'static mut BootInfo) -> ! {
 
     crate::log::init(SERIAL_LOG_MIN, CONSOLE_LOG_MIN, 128);
 
-    crate::init::kernel_main(crate::init::InitServices { modules });
+    crate::init::InitServices { modules }
 }
 
 unsafe fn load_module(module_desc: bootloader::boot_info::Module) -> BootModule {

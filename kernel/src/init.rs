@@ -11,7 +11,11 @@ pub struct InitServices {
 
 pub fn kernel_main(init_services: InitServices) -> ! {
     #[cfg(test)]
-    test_main();
+    {
+        panic!();
+        crate::test_main();
+        crate::arch::loop_forever();
+    }
 
     {
         let mut screen = video::vesa::lock_screen().unwrap();
