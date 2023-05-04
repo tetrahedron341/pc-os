@@ -1,4 +1,5 @@
 //! Definitions and constants to help userland programs interface with the kernel.
+#![no_std]
 
 use core::convert::TryFrom;
 
