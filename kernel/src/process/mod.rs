@@ -1,6 +1,6 @@
 use crate::arch::{
     cpu::{this_cpu, Context, Registers},
-    memory::{Page, PhysFrame, VirtAddr},
+    memory::{phys_to_virt, Page, VirtAddr},
 };
 use alloc::vec;
 use alloc::vec::Vec;
@@ -22,12 +22,9 @@ pub enum ProcessState {
 }
 
 pub struct Process {
-    pub code_len: u32,
-    pub frames: Vec<PhysFrame>,
     pub kernel_stack: Vec<u8>,
-    pub stack_frames: Vec<PhysFrame>,
-
     pub state: ProcessState,
+    pub space: crate::arch::memory::space::Space,
     pub context: *mut crate::arch::cpu::Context,
 }
 
@@ -101,10 +98,9 @@ pub fn create_process_from_elf(data: &[u8]) -> Result<Process, alloc::string::St
 }
 
 pub fn create_process(code: &[u8], entry: VirtAddr) -> Process {
-    let code_len = (code.len() / 4096) as u32;
-    let mut code_frames = Vec::new();
+    let mut space = crate::arch::memory::space::Space::new();
     // Copy the code into memory
-    for code_chunk in code.chunks(4096) {
+    for (i, code_chunk) in code.chunks(4096).enumerate() {
         let code_frame = crate::arch::memory::allocate_frame().expect("Out of memory");
         let copy_page = Page::from_start_address(crate::arch::memory::phys_to_virt(
             code_frame.start_address(),
@@ -117,7 +113,24 @@ pub fn create_process(code: &[u8], entry: VirtAddr) -> Process {
             )
         };
         target_chunk.copy_from_slice(code_chunk);
-        code_frames.push(code_frame);
+
+        let target_page = Page::from_start_address(PROCESS_START + i * 4096).unwrap();
+        unsafe {
+            use x86_64::structures::paging::{Mapper, PageTableFlags};
+            let mut fa = crate::arch::memory::FRAME_ALLOCATOR.get().unwrap().lock();
+            space
+                .page_table()
+                .map_to(
+                    target_page,
+                    code_frame,
+                    PageTableFlags::PRESENT
+                        | PageTableFlags::USER_ACCESSIBLE
+                        | PageTableFlags::WRITABLE,
+                    &mut *fa,
+                )
+                .unwrap()
+                .ignore();
+        }
     }
 
     let mut kernel_stack = vec![0u8; 1024];
@@ -175,20 +188,39 @@ pub fn create_process(code: &[u8], entry: VirtAddr) -> Process {
 
     // We need to create a stack for the user
     const STACK_FRAMES: usize = 4;
-    let user_stack = {
-        let mut v = Vec::with_capacity(STACK_FRAMES);
-        for _ in 0..STACK_FRAMES {
-            v.push(crate::arch::memory::allocate_frame().expect("Out of memory"));
+    for i in 0..STACK_FRAMES {
+        let frame = crate::arch::memory::allocate_frame().expect("Out of memory");
+        {
+            // Zero out the stack
+            let frame_slice = unsafe {
+                let ptr = phys_to_virt(frame.start_address()).as_mut_ptr::<u8>();
+                core::slice::from_raw_parts_mut(ptr, 4096)
+            };
+            frame_slice.fill(0);
         }
-        v
-    };
+        let target_page = Page::from_start_address(STACK_TOP - (i + 1) * 4096).unwrap();
+        unsafe {
+            use x86_64::structures::paging::{Mapper, PageTableFlags};
+            let mut fa = crate::arch::memory::FRAME_ALLOCATOR.get().unwrap().lock();
+            space
+                .page_table()
+                .map_to(
+                    target_page,
+                    frame,
+                    PageTableFlags::PRESENT
+                        | PageTableFlags::USER_ACCESSIBLE
+                        | PageTableFlags::WRITABLE,
+                    &mut *fa,
+                )
+                .unwrap()
+                .ignore()
+        }
+    }
 
     Process {
-        code_len,
-        frames: code_frames,
         kernel_stack,
-        stack_frames: user_stack,
         state: ProcessState::Runnable,
+        space,
         context,
     }
 }

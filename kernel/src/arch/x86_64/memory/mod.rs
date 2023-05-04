@@ -16,9 +16,9 @@ mod frame_allocator;
 pub(super) mod mmap;
 pub mod space;
 
-static FRAME_ALLOCATOR: OnceCell<Mutex<frame_allocator::BootInfoFrameAllocator>> =
+pub static FRAME_ALLOCATOR: OnceCell<Mutex<frame_allocator::BootInfoFrameAllocator>> =
     OnceCell::uninit();
-static MAPPER: OnceCell<Mutex<OffsetPageTable>> = OnceCell::uninit();
+pub static MAPPER: OnceCell<Mutex<OffsetPageTable>> = OnceCell::uninit();
 
 /// Initialize the kernel frame allocator and page mapper
 ///
@@ -52,6 +52,8 @@ where
 {
     FRAME_ALLOCATOR.get().unwrap().lock().allocate_frame()
 }
+
+pub fn deallocate_frame(_f: PhysFrame) {}
 
 /// # Safety
 /// See the [`x86_64::structures::paging::Mapper::map_to`] docs.
