@@ -163,7 +163,8 @@ fn enumerate_acpi_tables() {
     }
 
     let rsdp_response = RSDP_REQUEST.get_response().get().unwrap();
-    let tables = unsafe {acpi::AcpiTables::from_rsdp(AcpiHandler {}, rsdp_response.address.as_ptr().unwrap() as usize)}.unwrap();
+    let phys_offset = get_phys_mem_offset().as_u64() as usize;
+    let tables = unsafe {acpi::AcpiTables::from_rsdp(AcpiHandler {}, rsdp_response.address.as_ptr().unwrap() as usize - phys_offset)}.unwrap();
     let platform = tables.platform_info().unwrap();
     let acpi::platform::interrupt::InterruptModel::Apic(apic) = platform.interrupt_model else {return};
 }
