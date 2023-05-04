@@ -213,6 +213,7 @@ dependencies = [
  "pc-keyboard",
  "pic8259",
  "plain",
+ "rustc-demangle",
  "spin 0.9.4",
  "uart_16550",
  "volatile 0.2.7",
@@ -406,6 +407,12 @@ dependencies = [
  "json",
  "tempdir",
 ]
+
+[[package]]
+name = "rustc-demangle"
+version = "0.1.23"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d626bb9dae77e28219937af045c257c28bfd3f69333c512553507f5f9798cb76"
 
 [[package]]
 name = "rustversion"
