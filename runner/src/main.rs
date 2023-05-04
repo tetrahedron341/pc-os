@@ -9,13 +9,23 @@ use std::{
 static LIMINE_CFG: &str = include_str!("../limine.cfg");
 
 const RUN_ARGS: &[&str] = &[
-    "-s", "-serial", "stdio", "-vga", "std", "-m",
-    "1024",
-    // "-no-reboot",
-    // "-no-shutdown",
-    // "-d",
-    // "int",
-    // "-S",
+    "-s",
+    "-serial",
+    "stdio",
+    "-vga",
+    "std",
+    "-m",
+    "256M",
+    "-machine",
+    "q35",
+    "-drive",
+    "file=disk.img,format=raw",
+    "-cpu",
+    "qemu64", // "-no-reboot",
+              // "-no-shutdown",
+              // "-d",
+              // "int",
+              // "-S",
 ];
 
 const TEST_ARGS: &[&str] = &[
