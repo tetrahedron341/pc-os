@@ -1,7 +1,6 @@
 #![no_std]
 #![no_main]
 #![feature(custom_test_frameworks)]
-#![feature(asm)]
 #![test_runner(crate::test_runner)]
 #![reexport_test_harness_main = "test_main"]
 
@@ -101,7 +100,7 @@ fn main(boot_info: &'static mut BootInfo) -> ! {
     }
     if let Some(hello) = fs.iter_mut().find(|f| f.file_name() == "hello.txt") {
         let s = {
-            use bare_io::Read;
+            use core2::io::Read;
             let mut buf = alloc::vec![0u8; hello.file_size()];
             hello.read(&mut buf).unwrap();
             alloc::string::String::from_utf8_lossy(&buf).into_owned()
