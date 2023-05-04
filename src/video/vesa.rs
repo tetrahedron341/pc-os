@@ -1,11 +1,9 @@
-use core::sync::atomic::{AtomicU32, Ordering};
-
 pub static SCREEN: spin::Once<spin::Mutex<Screen>> = spin::Once::new();
 
 /// # Safety
-/// `graphics_mode` must satisfy the same constraints as [`Screen::new`]
-pub unsafe fn init_screen(graphics_mode: &'static bootloader::bootinfo::VesaGraphicsMode) {
-    SCREEN.call_once(|| spin::Mutex::new(Screen::new(graphics_mode)));
+/// `framebuffer` must satisfy the same constraints as [`Screen::new`]
+pub unsafe fn init_screen(framebuffer: &'static mut bootloader::boot_info::FrameBuffer) {
+    SCREEN.call_once(move || spin::Mutex::new(Screen::new(framebuffer)));
 }
 
 pub fn lock_screen<'a>() -> Option<spin::MutexGuard<'a, Screen>> {
@@ -13,79 +11,75 @@ pub fn lock_screen<'a>() -> Option<spin::MutexGuard<'a, Screen>> {
 }
 
 pub struct Screen {
-    framebuffer: &'static mut [AtomicU32],
-    width: usize,
-    height: usize,
+    framebuffer: &'static mut bootloader::boot_info::FrameBuffer,
 }
 
 impl Screen {
-    /// Initialize a new screen using a pointer to a VESA graphics mode descriptor
+    /// Initialize a new screen using a framebuffer recieved from the bootloader
     ///
     /// # Safety
-    /// `graphics_mode` must refer to a valid VESA graphics mode descriptor obtained from the bootloader
-    pub unsafe fn new(graphics_mode: &'static bootloader::bootinfo::VesaGraphicsMode) -> Self {
-        let framebuffer = {
-            let base = graphics_mode.framebuffer as usize as *mut AtomicU32;
-            let size = graphics_mode.pitch as usize * graphics_mode.height as usize;
-            core::slice::from_raw_parts_mut(base, size)
-        };
-        let width = graphics_mode.width as usize;
-        let height = graphics_mode.height as usize;
+    /// `framebuffer` must refer to a valid framebuffer obtained from the bootloader, and there must be no other living references to the framebuffer
+    pub unsafe fn new(framebuffer: &'static mut bootloader::boot_info::FrameBuffer) -> Self {
+        Screen { framebuffer }
+    }
 
-        Screen {
-            framebuffer,
-            width,
-            height,
-        }
+    pub fn height(&self) -> usize {
+        self.framebuffer.info().vertical_resolution
+    }
+
+    pub fn width(&self) -> usize {
+        self.framebuffer.info().horizontal_resolution
+    }
+
+    #[inline]
+    fn calculate_pixel_index(&self, x: usize, y: usize) -> usize {
+        let info = self.framebuffer.info();
+        (y * info.stride + x) * info.bytes_per_pixel
     }
 
     /// Draw a single pixel to the screen. Out-of-bounds pixels will be silently ignored.
     #[inline]
-    pub fn draw_pixel(&self, x: usize, y: usize, color: impl Color) {
-        if y >= self.height || x >= self.width {
+    pub fn draw_pixel(&mut self, x: usize, y: usize, color: impl Color) {
+        if y >= self.height() || x >= self.width() {
             return;
         }
-        let color = color.as_argb_u32();
-        let offset = y * self.width + x;
-        self.framebuffer[offset].store(color, Ordering::Relaxed);
+        let color = u32::to_be_bytes(color.as_argb_u32());
+        let offset = self.calculate_pixel_index(x, y);
+        if let pix @ [_, _, _, _] = &mut self.framebuffer.buffer_mut()[offset..offset + 4] {
+            pix.copy_from_slice(&color);
+        }
     }
 
     /// Draw a rectangle. Color values will be provided by a function, for ease of use with fonts, textures, etc.
     /// Out-of-bounds pixels will be silently ignored and the color function will not be called for them.
     pub fn draw_rect_with<F, C>(
-        &self,
+        &mut self,
         x: usize,
         y: usize,
         width: usize,
         height: usize,
         mut colors: F,
     ) where
-        F: FnMut(usize, usize) -> C,
+        F: FnMut(usize, usize, &Self) -> C,
         C: Color,
     {
         for row in y..y + height {
-            let row_offset = row * self.width;
             for col in x..x + width {
-                self.framebuffer[row_offset + col]
-                    .store(colors(col, row).as_argb_u32(), Ordering::Relaxed);
+                self.draw_pixel(col, row, colors(row, col, self));
             }
         }
     }
 
     pub fn get_pixel(&self, x: usize, y: usize) -> Option<u32> {
-        if y >= self.height || x >= self.width {
+        if y >= self.height() || x >= self.width() {
             return None;
         }
-        let offset = y * self.width + x;
-        Some(self.framebuffer[offset].load(Ordering::Relaxed))
-    }
-
-    pub fn width(&self) -> usize {
-        self.width
-    }
-
-    pub fn height(&self) -> usize {
-        self.height
+        let offset = self.calculate_pixel_index(x, y);
+        if let [a, r, g, b] = self.framebuffer.buffer()[offset..offset + 4] {
+            Some(u32::from_be_bytes([a, r, g, b]))
+        } else {
+            None
+        }
     }
 }
 
@@ -128,7 +122,7 @@ pub mod console {
         pub fn new(screen_mutex: &'a spin::Mutex<Screen>) -> Self {
             let (width, height) = {
                 let screen = screen_mutex.lock();
-                (screen.width, screen.height)
+                (screen.width(), screen.height())
             };
             Console {
                 rows: height / font::FONT.height(),
@@ -155,7 +149,7 @@ pub mod console {
                 gy,
                 font::FONT.width(),
                 font::FONT.height(),
-                |x, y| {
+                |x, y, _| {
                     let x = x - gx;
                     let y = y - gy;
                     if bitmap[y * bytes_per_row + x / 8] & (1 << (7 - (x % 8))) != 0 {
@@ -181,8 +175,10 @@ pub mod console {
 
         pub fn scroll_down(&mut self) {
             self.cursor.row -= 1;
-            let screen = self.screen.lock();
-            screen.draw_rect_with(0, 0, screen.width(), screen.height(), |x, y| {
+            let mut screen = self.screen.lock();
+            let width = screen.width();
+            let height = screen.height();
+            screen.draw_rect_with(0, 0, width, height, |x, y, screen| {
                 screen
                     .get_pixel(x, y + font::FONT.height())
                     .unwrap_or(self.cursor.bg_color)

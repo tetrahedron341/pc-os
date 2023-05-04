@@ -42,12 +42,9 @@ checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
 
 [[package]]
 name = "bootloader"
-version = "0.9.19"
-dependencies = [
- "bit_field",
- "cfg-if 0.1.10",
- "font8x8",
-]
+version = "0.10.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "61ee1938693d0a8a0b8398328d5632254e84ef42c095ef0b585fd903a8e19d20"
 
 [[package]]
 name = "cfg-if"
@@ -96,12 +93,6 @@ dependencies = [
  "autocfg",
  "cfg-if 0.1.10",
 ]
-
-[[package]]
-name = "font8x8"
-version = "0.2.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e63201c624b8c8883921b1a1accc8916c4fa9dbfb15d122b26e4dde945b86bbf"
 
 [[package]]
 name = "futures-core"
