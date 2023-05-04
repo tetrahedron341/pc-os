@@ -13,7 +13,7 @@ unsafe extern "C" fn _syscall_handler() {
         "mov rsp, [{sys_rsp} + rip]",
         "push rcx",
         "push r11",
-        "call syscall_handler",
+        "call {syscall_handler}",
         "pop r11",
         "pop rcx",
         "mov [{sys_rsp} + rip], rsp",
@@ -21,6 +21,7 @@ unsafe extern "C" fn _syscall_handler() {
         "sysretq",
         sys_rsp = sym SYSCALL_RSP,
         ret_rsp = sym RETURN_RSP,
+        syscall_handler = sym syscall_handler,
         options(noreturn)
     }
 }
@@ -47,7 +48,6 @@ pub fn init() {
     Star::write(user_cs, user_ss, kernel_cs, kernel_ss).unwrap();
 }
 
-#[no_mangle]
 extern "C" fn syscall_handler() {
     let (op, args) = unsafe {
         let op: u64;
