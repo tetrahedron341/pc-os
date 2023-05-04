@@ -1,6 +1,10 @@
-use crate::arch::memory::PhysFrame;
+use crate::arch::{
+    cpu::{this_cpu, Context, Registers},
+    memory::{Page, PhysFrame, VirtAddr},
+};
+use alloc::vec;
 use alloc::vec::Vec;
-use core::convert::TryInto;
+use core::{arch::asm, convert::TryInto, task::Poll};
 use goblin::elf64::{
     header::{Header, SIZEOF_EHDR},
     program_header::{ProgramHeader, PT_LOAD, SIZEOF_PHDR},
@@ -8,15 +12,48 @@ use goblin::elf64::{
 
 pub mod space;
 
-pub const PROCESS_START: x86_64::VirtAddr = x86_64::VirtAddr::new_truncate(0x1000_0000);
-pub const STACK_TOP: x86_64::VirtAddr = x86_64::VirtAddr::new_truncate(0xFFFF_FFFF);
-pub const STACK_BOTTOM: x86_64::VirtAddr = x86_64::VirtAddr::new_truncate(0xF000_0000);
+pub const PROCESS_START: VirtAddr = VirtAddr::new_truncate(0x1000_0000);
+pub const STACK_TOP: VirtAddr = VirtAddr::new_truncate(0x1_0000_0000);
+
+pub enum ProcessState {
+    Running,
+    Runnable,
+    Killed,
+}
 
 pub struct Process {
     pub code_len: u32,
     pub frames: Vec<PhysFrame>,
     pub kernel_stack: Vec<u8>,
     pub stack_frames: Vec<PhysFrame>,
+
+    pub state: ProcessState,
+    pub context: *mut crate::arch::cpu::Context,
+}
+
+unsafe impl Send for Process {}
+
+impl core::future::Future for Process {
+    type Output = ();
+
+    fn poll(
+        self: core::pin::Pin<&mut Self>,
+        cx: &mut core::task::Context<'_>,
+    ) -> core::task::Poll<Self::Output> {
+        x86_64::instructions::interrupts::disable();
+        let cpu = this_cpu();
+        let p = self.get_mut();
+        cpu.run_process(p);
+
+        match p.state {
+            ProcessState::Running => panic!("Yielded process in `Running` state!"),
+            ProcessState::Runnable => {
+                cx.waker().wake_by_ref();
+                Poll::Pending
+            }
+            ProcessState::Killed => Poll::Ready(()),
+        }
+    }
 }
 
 pub fn create_process_from_elf(data: &[u8]) -> Result<Process, alloc::string::String> {
@@ -54,12 +91,104 @@ pub fn create_process_from_elf(data: &[u8]) -> Result<Process, alloc::string::St
             if pheader.p_vaddr != PROCESS_START.as_u64() {
                 return Err("ELF64 Format Error: Invalid p_vaddr".into());
             }
-            // let program_data = &data
-            //     [pheader.p_offset as usize..pheader.p_offset as usize + pheader.p_filesz as usize];
-            // return Ok(create_process(paging_service, program_data, PROCESS_START));
-            todo!()
+            let program_data = &data
+                [pheader.p_offset as usize..pheader.p_offset as usize + pheader.p_filesz as usize];
+            return Ok(create_process(program_data, PROCESS_START));
         }
     }
 
     Err("ELF64 Format Error: Missing `PT_LOAD` section".into())
+}
+
+pub fn create_process(code: &[u8], entry: VirtAddr) -> Process {
+    let code_len = (code.len() / 4096) as u32;
+    let mut code_frames = Vec::new();
+    // Copy the code into memory
+    for code_chunk in code.chunks(4096) {
+        let code_frame = crate::arch::memory::allocate_frame().expect("Out of memory");
+        let copy_page = Page::from_start_address(crate::arch::memory::phys_to_virt(
+            code_frame.start_address(),
+        ))
+        .unwrap();
+        let target_chunk = unsafe {
+            core::slice::from_raw_parts_mut(
+                copy_page.start_address().as_mut_ptr(),
+                code_chunk.len(),
+            )
+        };
+        target_chunk.copy_from_slice(code_chunk);
+        code_frames.push(code_frame);
+    }
+
+    let mut kernel_stack = vec![0u8; 1024];
+    let mut sp = kernel_stack.len();
+    // Put an interrupt stack frame at the top of the stack so we can `iret` into user mode
+    let isf = x86_64::structures::idt::InterruptStackFrameValue {
+        instruction_pointer: entry,
+        cpu_flags: 1 << 9, // IF enabled
+        code_segment: crate::arch::gdt::SELECTORS.user_code_selector.0 as u64,
+        stack_segment: crate::arch::gdt::SELECTORS.user_data_selector.0 as u64,
+        stack_pointer: STACK_TOP,
+    };
+    let isf_bytes = unsafe {
+        core::mem::transmute::<
+            _,
+            [u8; core::mem::size_of::<x86_64::structures::idt::InterruptStackFrameValue>()],
+        >(isf)
+    };
+    let isf_len = isf_bytes.len();
+    sp -= isf_len;
+    kernel_stack[sp..sp + isf_len].copy_from_slice(&isf_bytes);
+
+    /// Empty function that just `iret`s
+    #[naked]
+    unsafe extern "C" fn trapret() {
+        asm! {"iretq", options(noreturn)}
+    }
+
+    let context = Context {
+        registers: Registers {
+            r15: 0,
+            r14: 0,
+            r13: 0,
+            r12: 0,
+            r11: 0,
+            r10: 0,
+            r9: 0,
+            r8: 0,
+            rbp: 0,
+            rdi: 0,
+            rsi: 0,
+            rdx: 0,
+            rcx: 0,
+            rbx: 0,
+            rax: 0,
+        },
+        rip: trapret as *const fn() as u64,
+    };
+    let context_bytes =
+        unsafe { core::mem::transmute::<_, [u8; core::mem::size_of::<Context>()]>(context) };
+    let ctx_len = core::mem::size_of::<Context>();
+    sp -= ctx_len;
+    kernel_stack[sp..sp + ctx_len].copy_from_slice(&context_bytes);
+    let context = (&mut kernel_stack[sp] as *mut u8).cast::<Context>();
+
+    // We need to create a stack for the user
+    const STACK_FRAMES: usize = 4;
+    let user_stack = {
+        let mut v = Vec::with_capacity(STACK_FRAMES);
+        for _ in 0..STACK_FRAMES {
+            v.push(crate::arch::memory::allocate_frame().expect("Out of memory"));
+        }
+        v
+    };
+
+    Process {
+        code_len,
+        frames: code_frames,
+        kernel_stack,
+        stack_frames: user_stack,
+        state: ProcessState::Runnable,
+        context,
+    }
 }

@@ -1,9 +1,11 @@
 use alloc::boxed::Box;
+use alloc::string::String;
 use alloc::vec::Vec;
 
 use crate::boot::BootModule;
 use crate::file;
 use crate::println;
+use crate::process;
 use crate::video;
 use crate::video::framebuffer::GfxRectangle;
 use crate::video::framebuffer::Pixel;
@@ -56,6 +58,10 @@ pub fn kernel_main(init_services: InitServices) -> ! {
 
     println!();
     println!("Hello world!");
+    println!(
+        "HHDM offset: {:#?}",
+        crate::arch::memory::phys_to_virt(crate::arch::memory::PhysAddr::zero())
+    );
 
     println!("Loaded boot modules: {:#?}", init_services.modules);
     let initrd = init_services
@@ -78,6 +84,26 @@ pub fn kernel_main(init_services: InitServices) -> ! {
         println!("hello.txt contents:\n{}", s)
     }
 
+    if let Some(init) = fs.iter_mut().find(|f| f.file_name() == "init") {
+        let init_elf = {
+            use core2::io::Read;
+            let mut buf = alloc::vec![0u8; init.file_size()];
+            init.read(&mut buf).unwrap();
+            buf
+        };
+
+        init_process(&init_elf).unwrap();
+    }
+
     // crate::process::user_mode(fs, paging_service)
     panic!("kernel_main finished successfully");
+}
+
+fn init_process(init_elf: &[u8]) -> Result<(), String> {
+    let p = process::create_process_from_elf(init_elf)?;
+
+    let mut exec = crate::task::executor::Executor::new();
+    exec.spawn(p);
+
+    exec.run()
 }

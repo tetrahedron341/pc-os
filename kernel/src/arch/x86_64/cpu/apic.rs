@@ -1,3 +1,5 @@
+use core::ptr::NonNull;
+
 use x86_64::registers::model_specific::Msr;
 
 use crate::arch::memory::{phys_to_virt, PhysAddr};
@@ -57,11 +59,13 @@ pub struct ApicRegisters {
 }
 
 impl ApicRegisters {
-    /// Allows use/modification of the APIC registers. Interrupts are disabled while this runs.
-    pub unsafe fn with<R>(f: impl FnOnce(&mut ApicRegisters) -> R) -> R {
+    /// Allows use/modification of the APIC registers.
+    /// # Safety
+    /// Interrupts must be disabled while using the registers.
+    pub unsafe fn get() -> NonNull<ApicRegisters> {
         let apic_base_register = APIC_BASE_ADDRESS_REGISTER.read();
         let apic_addr = PhysAddr::new(apic_base_register & 0x000F_FFFF_FFFF_F000);
         let apic: *mut ApicRegisters = phys_to_virt(apic_addr).as_mut_ptr();
-        f(apic.as_mut().unwrap())
+        NonNull::new(apic).unwrap()
     }
 }

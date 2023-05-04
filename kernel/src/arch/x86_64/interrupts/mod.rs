@@ -1,6 +1,4 @@
-mod registers;
-pub use registers::Registers;
-
+use super::cpu::{this_cpu, Registers};
 use pic8259::ChainedPics;
 use x86_64::structures::idt::*;
 
@@ -14,9 +12,17 @@ const TIMER_VEC: u8 = PIC_1_OFFSET;
 const KEYBOARD_VEC: u8 = PIC_1_OFFSET + 1;
 // const MOUSE_VEC: u8 = PIC_2_OFFSET + 4;
 
+#[derive(Debug)]
+#[repr(C)]
+struct IsfWithRegisters {
+    pub registers: Registers,
+    pub error_code: u64,
+    pub isf: InterruptStackFrameValue,
+}
+
 macro_rules! save_regs {
     ($handler:ident) => {{
-        let _ = $handler as extern "C" fn(*mut Registers) -> *mut Registers;
+        let _ = $handler as extern "C" fn(*mut IsfWithRegisters) -> *mut IsfWithRegisters;
         #[naked]
         extern "x86-interrupt" fn wrapper(_: InterruptStackFrame) {
             use core::arch::asm;
@@ -67,7 +73,7 @@ macro_rules! save_regs {
     }};
 }
 
-extern "C" fn breakpoint_handler(regs: *mut Registers) -> *mut Registers {
+extern "C" fn breakpoint_handler(regs: *mut IsfWithRegisters) -> *mut IsfWithRegisters {
     crate::serial_println!("EXCEPTION: BREAKPOINT\n{:X?}", unsafe { &*regs });
     regs
 }
@@ -103,6 +109,13 @@ extern "x86-interrupt" fn page_fault_handler(
 
 extern "x86-interrupt" fn timer_interrupt_handler(_stack_frame: InterruptStackFrame) {
     crate::task::timer::tick_timer();
+
+    x86_64::instructions::interrupts::without_interrupts(|| {
+        let cpu = this_cpu();
+        if let Some(proc) = cpu.try_take_process() {
+            cpu.return_from_process(proc)
+        }
+    });
 
     unsafe {
         PICS.lock().notify_end_of_interrupt(TIMER_VEC);
@@ -143,44 +156,6 @@ pub fn init_idt() {
     .expect("Tried to initialize IDT twice");
     IDT.get().unwrap().load();
 }
-
-// /// A wrapper type that disables interrupts for as long as it lives.
-// pub struct InterruptGuard<T = ()> {
-//     if_save: bool,
-//     inner: T,
-// }
-
-// impl<T> InterruptGuard<T> {
-//     pub fn new(inner: T) -> Self {
-//         let if_save = x86_64::instructions::interrupts::are_enabled();
-//         x86_64::instructions::interrupts::disable();
-//         InterruptGuard { if_save, inner }
-//     }
-// }
-
-// impl<T> Drop for InterruptGuard<T> {
-//     fn drop(&mut self) {
-//         let if_restore = self.if_save;
-//         if if_restore {
-//             x86_64::instructions::interrupts::enable();
-//         } else {
-//             x86_64::instructions::interrupts::disable();
-//         }
-//     }
-// }
-
-// impl<T> core::ops::Deref for InterruptGuard<T> {
-//     type Target = T;
-//     fn deref(&self) -> &Self::Target {
-//         &self.inner
-//     }
-// }
-
-// impl<T> core::ops::DerefMut for InterruptGuard<T> {
-//     fn deref_mut(&mut self) -> &mut Self::Target {
-//         &mut self.inner
-//     }
-// }
 
 #[test_case]
 fn test_breakpoint() {
