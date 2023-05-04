@@ -231,8 +231,8 @@ pub struct Pixel {
 
 impl Pixel {
     const BLANK: Self = Pixel::new_rgba(0, 0, 0, 255);
-    const BLACK: Self = Pixel::new_rgb(0, 0, 0);
-    const WHITE: Self = Pixel::new_rgb(255, 255, 255);
+    // const BLACK: Self = Pixel::new_rgb(0, 0, 0);
+    // const WHITE: Self = Pixel::new_rgb(255, 255, 255);
 
     #[inline]
     pub const fn new_rgba(r: u8, g: u8, b: u8, a: u8) -> Self {

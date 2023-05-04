@@ -106,6 +106,20 @@ fn _start() -> ! {
     //     crate::video::vesa::console::Console::new(crate::video::vesa::SCREEN.get().unwrap());
     // crate::video::console::CONSOLE.lock().replace(console);
 
+    let vendor_cpuid = unsafe { core::arch::x86_64::__cpuid(0) };
+    let vendor_string = unsafe {
+        core::mem::transmute::<[u32; 3], [u8; 12]>([
+            vendor_cpuid.ebx,
+            vendor_cpuid.edx,
+            vendor_cpuid.ecx,
+        ])
+    };
+
+    crate::serial_println!(
+        "CPU Vendor ID string: {:?}",
+        String::from_utf8_lossy(&vendor_string)
+    );
+
     x86_64::instructions::interrupts::enable();
 
     const SERIAL_LOG_MIN: log::LevelFilter = log::LevelFilter::Info;
