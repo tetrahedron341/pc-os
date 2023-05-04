@@ -1,7 +1,7 @@
 #![no_std]
 #![no_main]
 #![feature(custom_test_frameworks)]
-#![test_runner(pc_os::test_runner)]
+#![test_runner(kernel::test_runner)]
 #![reexport_test_harness_main = "test_main"]
 
 use core::panic::PanicInfo;
@@ -15,10 +15,10 @@ pub extern "C" fn _start() -> ! {
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
-    pc_os::test_panic_handler(info);
+    kernel::test_panic_handler(info);
 }
 
 #[test_case]
 fn test_println() {
-    pc_os::println!("test_println output");
+    kernel::println!("test_println output");
 }

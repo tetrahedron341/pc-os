@@ -15,6 +15,15 @@ const RUN_ARGS: &[&str] = &[
     "std",
 ];
 
+const TEST_ARGS: &[&str] = &[
+    "-device",
+    "isa-debug-exit,iobase=0xf4,iosize=0x04",
+    "-serial",
+    "stdio",
+];
+
+const QEMU_EXIT_SUCCESS_CODE: i32 = 0x10;
+
 const KERNEL_CRATE_NAME: &str = "kernel";
 
 #[derive(FromArgs)]
@@ -36,6 +45,14 @@ fn main() {
     } = argh::from_env();
 
     let kernel_binary_path = kernel_binary_path.canonicalize().unwrap();
+    let kernel_parent = kernel_binary_path.parent().unwrap();
+    let is_doctest = kernel_parent
+        .file_name()
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .starts_with("rustdoctest");
+    let is_test = is_doctest || kernel_parent.ends_with("deps");
 
     let uefi = create_disk_images(&kernel_binary_path);
 
@@ -44,17 +61,35 @@ fn main() {
         return;
     }
 
+    let ovmf_path: PathBuf = std::env::var("OVMF_FD").unwrap().into();
+    let ovmf_path = ovmf_path.canonicalize().unwrap();
+
     let mut run_cmd = Command::new("qemu-system-x86_64");
     run_cmd
         .arg("-drive")
         .arg(format!("format=raw,file={}", uefi.display()))
-        .args(["-bios", "OVMF-pure-efi.fd"]);
-    run_cmd.args(RUN_ARGS);
+        .args(["-bios", ovmf_path.to_str().unwrap()]);
 
-    let exit_status = run_cmd.status().unwrap();
-    if !exit_status.success() {
-        std::process::exit(exit_status.code().unwrap_or(1));
-    }
+    let exit_status = if is_test {
+        run_cmd.args(TEST_ARGS);
+        if let Some(code) = run_cmd.status().unwrap().code() {
+            if code == (QEMU_EXIT_SUCCESS_CODE << 1) | 1 {
+                println!("Tests passed successfully");
+                0
+            } else {
+                println!("Tests failed: status code {}", code);
+                code
+            }
+        } else {
+            println!("Process was killed");
+            -1
+        }
+    } else {
+        run_cmd.args(RUN_ARGS);
+        run_cmd.status().unwrap().code().unwrap()
+    };
+
+    std::process::exit(exit_status)
 }
 
 fn create_disk_images(kernel_binary_path: &Path) -> PathBuf {

@@ -1,17 +1,16 @@
 #![no_std]
 #![no_main]
-
 #![feature(abi_x86_interrupt)]
 
 use core::panic::PanicInfo;
-use pc_os::{serial_print, serial_println, exit_qemu, QemuExitCode};
+use kernel::{exit_qemu, serial_print, serial_println, QemuExitCode};
 use volatile::Volatile;
 
 #[no_mangle] // don't mangle the name of this function
 pub extern "C" fn _start() -> ! {
     serial_print!("stack_overflow::stack_overflow...\t");
-    
-    pc_os::gdt::init();
+
+    kernel::gdt::init();
     init_test_idt();
 
     #[allow(unconditional_recursion)]
@@ -38,7 +37,7 @@ lazy_static! {
         unsafe {
             idt.double_fault
                 .set_handler_fn(test_double_fault_handler)
-                .set_stack_index(pc_os::gdt::DOUBLE_FAULT_IST_INDEX);
+                .set_stack_index(kernel::gdt::DOUBLE_FAULT_IST_INDEX);
         }
 
         idt
@@ -52,7 +51,7 @@ pub fn init_test_idt() {
 use x86_64::structures::idt::InterruptStackFrame;
 
 extern "x86-interrupt" fn test_double_fault_handler(
-    _stack_frame: &mut InterruptStackFrame,
+    _stack_frame: InterruptStackFrame,
     _error_code: u64,
 ) -> ! {
     serial_println!("[ok]");
