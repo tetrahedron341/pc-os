@@ -16,6 +16,15 @@ pub(super) fn syscall_dispatch(op: u64, ptr: *mut u8) -> SyscallStatus {
                 crate::println!("Ping!");
                 SyscallStatus::Ok
             }
+            SyscallOpCode::PutChar => {
+                let c = char::from(op.arg_u8);
+                if ('\x20'..='\x7E').contains(&c) || c == '\n' {
+                    crate::print!("{}",c);
+                    SyscallStatus::Ok
+                } else {
+                    SyscallStatus::Error
+                }
+            }
             SyscallOpCode::GetKbdCode => {
                 crate::println!("TODO: Keyboard syscall");
                 SyscallStatus::Error
