@@ -1,7 +1,7 @@
 BINS = init
 FILES = $(BINS) hello.txt
 LDFLAGS = -T link.ld -nostdlib -L../api -lkernel
-CFLAGS = -I ../api/include
+CFLAGS = -I ../libkernel/include
 
 .PHONY: clean
 

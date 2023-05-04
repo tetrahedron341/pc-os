@@ -1,58 +1,94 @@
-mod syscalls;
+mod dispatch;
+mod syscall_impl;
 
-static mut STACK: [u8; 32 * 1024] = [0; 32 * 1024];
-#[no_mangle]
-static mut SYSCALL_RSP: *const u8 = unsafe { &STACK[STACK.len() - 8] as *const u8 };
-#[no_mangle]
-static mut RETURN_RSP: *const u8 = core::ptr::null();
+pub use syscall_impl::init;
 
-global_asm!(include_str!("syscall.s"));
+use core::convert::TryFrom;
 
-extern "C" {
-    fn _syscall_handler();
+use crate::uapi::*;
+
+#[repr(u8)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum SyscallOpCode {
+    /// Print out "Ping!" to the console screen
+    Ping = SYS_PING as u8,
+    GetKbdCode = SYS_GETCHAR as u8,
+
+    /// Exits the current process
+    Exit = SYS_EXIT as u8,
 }
 
-pub fn init() {
-    use x86_64::{
-        registers::model_specific::{Efer, EferFlags, LStar, Star},
-        VirtAddr,
-    };
-    // Enable the SYSCALL/SYSRET instructions
-    unsafe {
-        Efer::update(|f| *f |= EferFlags::SYSTEM_CALL_EXTENSIONS);
-    }
-    // Load the syscall function pointer into IA32_LSTAR
-    LStar::write(VirtAddr::new(_syscall_handler as *const () as usize as u64));
+impl TryFrom<u8> for SyscallOpCode {
+    type Error = ();
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        use SyscallOpCode::*;
+        match value {
+            0 => Ok(Ping),
+            1 => Ok(GetKbdCode),
 
-    use crate::gdt::GDT;
-    let kernel_cs = GDT.1.code_selector;
-    let kernel_ss = GDT.1.data_selector;
-    let user_cs = GDT.1.user_code_selector;
-    let user_ss = GDT.1.user_data_selector;
-
-    // Load the appropriate segment selectors to IA32_STAR
-    Star::write(user_cs, user_ss, kernel_cs, kernel_ss).unwrap();
-}
-
-#[no_mangle]
-extern "C" fn syscall_handler() {
-    let (op, ptr) = unsafe {
-        let r14: u64;
-        let r15: u64;
-        asm!(
-            "mov {r14}, r14",
-            "mov {r15}, r15",
-            r14 = out(reg) r14,
-            r15 = out(reg) r15,
-        );
-        (r14, r15 as usize as *mut u8)
-    };
-
-    let r: u64 = syscalls::syscall_dispatch(op, ptr).into();
-    unsafe {
-        asm!(
-            "mov r14, {r}",
-            r = in(reg) r
-        )
+            127 => Ok(Exit),
+            _ => Err(()),
+        }
     }
 }
+
+#[repr(C, packed)]
+#[derive(Debug, Clone, Copy)]
+pub struct SyscallOp {
+    pub opcode: SyscallOpCode,
+    pub arg_u8: u8,
+    pub arg_u16: u16,
+    pub arg_u32: u32,
+}
+
+impl TryFrom<u64> for SyscallOp {
+    type Error = ();
+    fn try_from(value: u64) -> Result<Self, Self::Error> {
+        #[repr(C, packed)]
+        #[allow(dead_code)]
+        struct SyscallOpIntermediate {
+            pub opcode: u8,
+            pub arg_u8: u8,
+            pub arg_u16: u16,
+            pub arg_u32: u32,
+        }
+        let SyscallOpIntermediate {
+            opcode,
+            arg_u8,
+            arg_u16,
+            arg_u32,
+        } = unsafe { core::mem::transmute(value) };
+        let opcode = SyscallOpCode::try_from(opcode)?;
+        Ok(SyscallOp {
+            opcode,
+            arg_u8,
+            arg_u16,
+            arg_u32,
+        })
+    }
+}
+
+#[repr(u64)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SyscallStatus {
+    Ok = 0,
+    Error = 0x8000000000000000,
+    InvalidOp = 0xFFFFFFFFFFFFFFFF,
+}
+
+impl From<SyscallStatus> for u64 {
+    fn from(val: SyscallStatus) -> Self {
+        val as u64
+    }
+}
+
+// /// Triggers a syscall.
+// #[no_mangle]
+// pub extern "C" fn syscall(op: SyscallOp, ptr: *mut u8) -> SyscallStatus {
+//     let status: u64;
+//     unsafe {
+//         asm!("syscall", inout("r14") core::mem::transmute::<_,u64>(op) => _, inout("r15") ptr => status);
+
+//         core::mem::transmute(status)
+//     }
+// }

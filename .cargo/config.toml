@@ -9,3 +9,6 @@ ktest = "test --package kernel --target x86_64-pc_os.json -Zbuild-std=core,alloc
 
 [env]
 OVMF_FD = { value = "OVMF-pure-efi.fd", relative = true }
+
+[unstable]
+features = ["host_dep"]
