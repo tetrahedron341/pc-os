@@ -33,6 +33,15 @@ const TEST_ARGS: &[&str] = &[
     "isa-debug-exit,iobase=0xf4,iosize=0x04",
     "-serial",
     "stdio",
+    "-m",
+    "256M",
+    "-machine",
+    "q35",
+    "-no-reboot",
+    "-display",
+    "none",
+    // "-d",
+    // "cpu_reset,int",
 ];
 
 const QEMU_EXIT_SUCCESS_CODE: i32 = 0x10;
@@ -65,6 +74,10 @@ fn main() {
         .starts_with("rustdoctest");
     let is_test = is_doctest || kernel_parent.ends_with("deps");
 
+    if is_test {
+        println!("Running in test mode...");
+    }
+
     let uefi = create_disk_images(&kernel_binary_path);
 
     if no_boot {
@@ -83,12 +96,43 @@ fn main() {
 
     let exit_status = if is_test {
         run_cmd.args(TEST_ARGS);
-        if let Some(code) = run_cmd.status().unwrap().code() {
+        run_cmd.stdout(std::process::Stdio::piped());
+        run_cmd.stderr(std::process::Stdio::piped());
+        println!("Running {:?}", &run_cmd);
+        let mut child = run_cmd.spawn().unwrap();
+        let status = child.wait().unwrap();
+        if let Some(code) = status.code() {
             if code == (QEMU_EXIT_SUCCESS_CODE << 1) | 1 {
                 println!("Tests passed successfully");
                 0
             } else {
-                println!("Tests failed: status code {}", code);
+                println!("\nTests failed: status code {}", code);
+                struct PrintableFilter<T: Write>(T);
+                impl<T: Write> Write for PrintableFilter<T> {
+                    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+                        for s in
+                            buf.split(|c| !c.is_ascii() || (c.is_ascii_control() && *c != b'\n'))
+                        {
+                            self.0.write_all(s)?;
+                        }
+                        Ok(buf.len())
+                    }
+                    fn flush(&mut self) -> std::io::Result<()> {
+                        self.0.flush()
+                    }
+                }
+                if let Some(mut output) = child.stdout {
+                    println!("\n========== Test stdout ==========\n");
+                    let mut stdout = PrintableFilter(std::io::stdout());
+                    std::io::copy(&mut output, &mut stdout).unwrap();
+                    println!();
+                }
+                if let Some(mut output) = child.stderr {
+                    println!("\n========== Test stderr ==========\n");
+                    let mut stdout = PrintableFilter(std::io::stdout());
+                    std::io::copy(&mut output, &mut stdout).unwrap();
+                    println!()
+                }
                 code
             }
         } else {
@@ -97,6 +141,7 @@ fn main() {
         }
     } else {
         run_cmd.args(RUN_ARGS);
+        println!("Running {:?}", &run_cmd);
         run_cmd.status().unwrap().code().unwrap()
     };
 
@@ -111,7 +156,11 @@ fn create_disk_images(kernel_binary_path: &Path) -> PathBuf {
 
     let image_dir = tempdir::TempDir::new("tmp-runner").unwrap();
 
-    let img = target_directory.join("kernel.img");
+    let img_name = kernel_binary_path
+        .file_stem()
+        .map(std::ffi::OsStr::to_string_lossy)
+        .unwrap_or("kernel".into());
+    let img = target_directory.join(format!("{img_name}.img"));
     build_image(image_dir.path(), kernel_binary_path, &limine_dir, &img);
 
     img

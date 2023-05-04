@@ -168,7 +168,7 @@ pub fn init_idt() {
     unsafe {
         let mut pics = PICS.lock();
         pics.initialize();
-        pics.write_masks(0xFC, 0xFF);
+        pics.write_masks(0xFF, 0xFF);
     };
 }
 

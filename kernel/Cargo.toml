@@ -44,32 +44,27 @@ x86_64 = "0.14.6"
 
 [features]
 default = ["limine_bootloader"]
-custom_panic = []
-custom_entry_point = []
 phil_opp_bootloader = ["bootloader"]
 limine_bootloader = ["limine"]
 
+[[bin]]
+name = "main"
+test = false
+
 [[test]]
 name = "should_panic"
-harness = false
-required-features = ["custom_panic"]
 
 [[test]]
 name = "stack_overflow"
-harness = false
-required-features = ["custom_panic"]
 
 [[test]]
 name = "logger"
-required-features = ["custom_entry_point"]
 
 [[test]]
 name = "basic_boot"
-required-features = []
 
 [[test]]
 name = "heap_allocation"
-required-features = ["custom_entry_point"]
 
 [build-dependencies]
 bindgen = "0.59.1"

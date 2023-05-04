@@ -1,6 +1,7 @@
 use core::mem::MaybeUninit;
 
 use alloc::{boxed::Box, string::String, vec, vec::Vec};
+use limine::LimineFramebuffer;
 
 use crate::{
     arch::{
@@ -11,7 +12,7 @@ use crate::{
     video::Framebuffer,
 };
 
-static MMAP_REQUEST: limine::LimineMmapRequest = limine::LimineMmapRequest::new(0);
+static MMAP_REQUEST: limine::LimineMemmapRequest = limine::LimineMemmapRequest::new(0);
 
 static HHDM_REQUEST: limine::LimineHhdmRequest = limine::LimineHhdmRequest::new(0);
 
@@ -20,7 +21,7 @@ static MODULES_REQUEST: limine::LimineModuleRequest = limine::LimineModuleReques
 static FRAMEBUFFER_REQUEST: limine::LimineFramebufferRequest =
     limine::LimineFramebufferRequest::new(0);
 
-static RSDP_REQUEST: limine::LimineRsdpRequest = limine::LimineRsdpRequest::new(0);
+static _RSDP_REQUEST: limine::LimineRsdpRequest = limine::LimineRsdpRequest::new(0);
 
 // With the HHDM feature on, 4-level paging, and KASLR enabled, our higher half looks like:
 //
@@ -43,8 +44,6 @@ fn _start() -> ! {
 
     crate::log::init(SERIAL_LOG_MIN, CONSOLE_LOG_MIN, 128);
     let modules = get_modules();
-
-    enumerate_acpi_tables();
 
     let framebuffer = unsafe { get_framebuffer() }
         .map(|fb| Box::new(fb) as Box<dyn Framebuffer + Send + Sync + 'static>);
@@ -78,7 +77,7 @@ unsafe fn get_mmap() -> &'static mut [MemoryRegion] {
         .get_response()
         .get()
         .expect("MMAP request failed");
-    let limine_mmap = mmap_response.mmap().expect("MMAP request failed");
+    let limine_mmap = mmap_response.memmap();
 
     const MMAP_BUFFER_LEN: usize = 256;
     static mut MMAP_BUFFER: [MaybeUninit<MemoryRegion>; MMAP_BUFFER_LEN] =
@@ -86,7 +85,7 @@ unsafe fn get_mmap() -> &'static mut [MemoryRegion] {
     assert!(limine_mmap.len() <= MMAP_BUFFER_LEN, "Memory map too long");
     let mmap = MaybeUninit::slice_assume_init_mut(&mut MMAP_BUFFER[..limine_mmap.len()]);
     for (i, r) in limine_mmap.iter().enumerate() {
-        mmap[i] = r.into();
+        mmap[i] = MemoryRegion::from(&**r);
     }
 
     crate::serial_println!("{:X?}", mmap);
@@ -108,7 +107,7 @@ fn get_modules() -> Vec<BootModule> {
     let limine_modules = MODULES_REQUEST
         .get_response()
         .get()
-        .and_then(|resp| resp.modules())
+        .map(|resp| resp.modules())
         .unwrap_or_else(|| {
             crate::serial_println!("Module request failed");
             &[]
@@ -128,16 +127,15 @@ fn get_modules() -> Vec<BootModule> {
                 .into()
         };
 
-        let data = unsafe {
-            core::slice::from_raw_parts_mut(m.base.as_mut_ptr().unwrap(), m.length as usize)
-        };
+        let data =
+            unsafe { core::slice::from_raw_parts_mut(m.base.as_ptr().unwrap(), m.length as usize) };
 
         modules.push(crate::boot::BootModule { name, data });
     }
     modules
 }
 
-fn enumerate_acpi_tables() {
+fn _enumerate_acpi_tables() {
     #[repr(C, packed)]
     struct Rsdp {
         signature: [u8; 8],
@@ -188,8 +186,8 @@ fn enumerate_acpi_tables() {
         _reserved: [u8; 4],
     }
 
-    let rsdp_response = RSDP_REQUEST.get_response().get().unwrap();
-    let rsdp = rsdp_response.address.as_mut_ptr().unwrap().cast::<Rsdp>();
+    let rsdp_response = _RSDP_REQUEST.get_response().get().unwrap();
+    let rsdp = rsdp_response.address.as_ptr().unwrap().cast::<Rsdp>();
 
     unsafe {
         let sig = &(*rsdp).signature;
@@ -278,13 +276,12 @@ fn enumerate_acpi_tables() {
 /// # Safety
 /// Call only once.
 unsafe fn get_framebuffer() -> Option<impl Framebuffer + Send + Sync + 'static> {
-    FRAMEBUFFER_REQUEST.get_response().get().and_then(|resp| {
-        resp.framebuffers().map(|fbs| {
-            let fb = &fbs[0] as *const _;
-            Box::new(FramebufferImpl(
-                &mut *(fb as *mut limine::LimineFramebuffer),
-            )) as Box<dyn Framebuffer + Send + Sync + 'static>
-        })
+    FRAMEBUFFER_REQUEST.get_response().get().map(|resp| {
+        let fbs = resp.framebuffers();
+        let fb = &(*fbs[0]) as *const LimineFramebuffer;
+        Box::new(FramebufferImpl(
+            &mut *(fb as *mut limine::LimineFramebuffer),
+        )) as Box<dyn Framebuffer + Send + Sync + 'static>
     })
 }
 
@@ -338,7 +335,7 @@ impl crate::video::Framebuffer for FramebufferImpl {
     fn get_mut(&mut self) -> &mut [u8] {
         unsafe {
             core::slice::from_raw_parts_mut(
-                self.0.address.as_mut_ptr().unwrap(),
+                self.0.address.as_ptr().unwrap(),
                 (self.0.height * self.0.pitch) as _,
             )
         }

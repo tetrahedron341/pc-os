@@ -69,7 +69,7 @@ extern "C" fn syscall_handler() {
 
     let r: u64 = {
         let op = u32::try_from(op).ok();
-        if let Some(op) = op.and_then(|op| SyscallOp::new(op as u32, args)) {
+        if let Some(op) = op.and_then(|op| SyscallOp::new(op, args)) {
             crate::syscall::syscall_dispatch(op)
         } else {
             SyscallStatus::InvalidOp

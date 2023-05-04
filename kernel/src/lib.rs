@@ -1,6 +1,5 @@
 #![no_std]
 #![no_main]
-#![cfg_attr(test, no_main)]
 #![feature(custom_test_frameworks)]
 #![feature(abi_x86_interrupt)]
 #![feature(alloc_error_handler)]
@@ -11,6 +10,7 @@
 #![feature(maybe_uninit_slice)]
 #![feature(const_maybe_uninit_uninit_array)]
 #![feature(ptr_metadata)]
+#![feature(never_type)]
 #![test_runner(crate::test::test_runner)]
 #![allow(clippy::new_without_default)]
 #![reexport_test_harness_main = "test_main"]
@@ -24,7 +24,6 @@ pub mod boot;
 pub mod file;
 pub mod init;
 pub mod log;
-#[cfg(not(feature = "custom_panic"))]
 mod panic;
 pub mod process;
 pub mod serial;
@@ -37,3 +36,6 @@ pub mod video;
 pub mod uapi {
     include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 }
+
+#[cfg(test)]
+crate::kernel_main!(test::TestMainBuilder::new(test_main).build());
