@@ -8,6 +8,7 @@
 #![feature(global_asm)]
 #![test_runner(crate::test_runner)]
 #![reexport_test_harness_main = "test_main"]
+#![allow(clippy::new_without_default)]
 
 extern crate alloc;
 
@@ -28,7 +29,7 @@ pub mod video;
 use core::panic::PanicInfo;
 
 pub trait Testable {
-    fn run(&self) -> ();
+    fn run(&self);
 }
 
 impl<T> Testable for T

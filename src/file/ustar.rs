@@ -17,13 +17,13 @@ pub struct RawUstarHeader {
     pub _group_name: [u8; 32],
     pub _device_maj: [u8; 8],
     pub _device_min: [u8; 8],
-    pub _file_name_prefix: [u8; 155]
+    pub _file_name_prefix: [u8; 155],
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum UstarFormatError {
     InvalidMagic,
-    InvalidChecksum(u32,u32),
+    InvalidChecksum(u32, u32),
     InvalidType,
     UnexpectedNonOctalChar,
     SliceTooSmall,
@@ -31,21 +31,25 @@ pub enum UstarFormatError {
 
 pub struct UstarFile<'a> {
     raw_header: &'a RawUstarHeader,
-    data: bare_io::Cursor<&'a [u8]>
+    data: bare_io::Cursor<&'a [u8]>,
 }
 
 impl<'a> UstarFile<'a> {
+    /// Returns a reader for a USTAR file placed in memory
+    ///
+    /// # Safety
+    /// `ptr` must refer to a valid USTAR file header
+    ///
+    /// # TODO
+    /// This could very easily buffer overflow.
     pub unsafe fn from_raw(ptr: *const RawUstarHeader) -> Self {
         let raw_header = &*ptr;
         let data = {
-            let base = (ptr as *const u8).offset(512); 
+            let base = (ptr as *const u8).offset(512);
             let size = oct_to_u32(&raw_header.file_size).unwrap() as usize;
             bare_io::Cursor::new(core::slice::from_raw_parts(base, size))
         };
-        UstarFile {
-            raw_header,
-            data
-        }
+        UstarFile { raw_header, data }
     }
 
     pub fn read_raw(slice: &'a [u8]) -> Result<Self, UstarFormatError> {
@@ -55,62 +59,66 @@ impl<'a> UstarFile<'a> {
         // Safety: RawUstarHeader has no invalid states, and the index will panic anyways if it is out of bounds.
         let raw: &RawUstarHeader = unsafe { core::mem::transmute(&slice[0..512][0]) };
         if &raw.ustar_indicator != b"ustar  \0" {
-            return Err(UstarFormatError::InvalidMagic)
+            return Err(UstarFormatError::InvalidMagic);
         }
 
         if raw.file_type != 0 && !(b'0'..=b'6').contains(&raw.file_type) {
-            return Err(UstarFormatError::InvalidType)
+            return Err(UstarFormatError::InvalidType);
         }
 
         let checksum = oct_to_u32(&raw.header_checksum)?;
-        let mut sum = 0;
-        for i in 0..512 {
-            sum += if (148..156).contains(&i) {
-                b' ' as u32 // Pretend the checksum bytes are all ascii spaces
-            } else {
-                slice[i] as u32
-            };
-        }
+        let sum = slice
+            .iter()
+            .enumerate()
+            .take(512)
+            .map(|(i, byte)| {
+                if (148..156).contains(&i) {
+                    b' ' as u32 // Pretend checksum bytes are empty spaces
+                } else {
+                    *byte as u32
+                }
+            })
+            .sum();
         if checksum != sum {
-            return Err(UstarFormatError::InvalidChecksum(checksum, sum))
+            return Err(UstarFormatError::InvalidChecksum(checksum, sum));
         }
 
         // Check to make sure all of the data is contained within the slice.
         let file_size = oct_to_u32(&raw.file_size)? as usize;
         if 512 + file_size >= slice.len() {
-            return Err(UstarFormatError::SliceTooSmall)
+            return Err(UstarFormatError::SliceTooSmall);
         }
 
-        Ok(
-            UstarFile {
-                raw_header: raw,
-                data: bare_io::Cursor::new(&slice[512..512+file_size])
-            }
-        )
+        Ok(UstarFile {
+            raw_header: raw,
+            data: bare_io::Cursor::new(&slice[512..512 + file_size]),
+        })
     }
 
-    pub unsafe fn read_raw_ptr(ptr: *const u8) -> Result<Self, UstarFormatError> {
-        let raw = &*(ptr as *const RawUstarHeader);
-        if &raw.ustar_indicator != b"ustar  \0" {
-            return Err(UstarFormatError::InvalidMagic)
-        }
+    // pub unsafe fn read_raw_ptr(ptr: *const u8) -> Result<Self, UstarFormatError> {
+    //     let raw = &*(ptr as *const RawUstarHeader);
+    //     if &raw.ustar_indicator != b"ustar  \0" {
+    //         return Err(UstarFormatError::InvalidMagic);
+    //     }
 
-        if raw.file_type != 0 && !(b'0'..=b'6').contains(&raw.file_type) {
-            return Err(UstarFormatError::InvalidType)
-        }
+    //     if raw.file_type != 0 && !(b'0'..=b'6').contains(&raw.file_type) {
+    //         return Err(UstarFormatError::InvalidType);
+    //     }
 
-        let checksum = oct_to_u32(&raw.header_checksum)?;
-        let mut sum = 0;
-        for i in 0..512 {
-            if (148..156).contains(&i) { continue }
-            sum += *(ptr.offset(i)) as u32;
-        }
-        if checksum != sum {
-            return Err(UstarFormatError::InvalidChecksum(checksum, sum))
-        }
+    //     let checksum = oct_to_u32(&raw.header_checksum)?;
+    //     let mut sum = 0;
+    //     for i in 0..512 {
+    //         if (148..156).contains(&i) {
+    //             continue;
+    //         }
+    //         sum += *(ptr.offset(i)) as u32;
+    //     }
+    //     if checksum != sum {
+    //         return Err(UstarFormatError::InvalidChecksum(checksum, sum));
+    //     }
 
-        Ok(Self::from_raw(ptr as *const RawUstarHeader))
-    }
+    //     Ok(Self::from_raw(ptr as *const RawUstarHeader))
+    // }
 
     pub fn file_name(&self) -> alloc::borrow::Cow<str> {
         let file_name = {
@@ -118,7 +126,7 @@ impl<'a> UstarFile<'a> {
             for (i, &b) in s.iter().enumerate() {
                 if b == 0 {
                     s = &s[..i];
-                    break
+                    break;
                 }
             }
             s
@@ -131,8 +139,7 @@ impl<'a> UstarFile<'a> {
     }
 
     pub fn is_file(&self) -> bool {
-        self.raw_header.file_type == b'0' ||
-        self.raw_header.file_type == 0
+        self.raw_header.file_type == b'0' || self.raw_header.file_type == 0
     }
 
     pub fn file_size(&self) -> usize {
@@ -154,17 +161,15 @@ impl<'a> Read for UstarFile<'a> {
 pub fn get_all_entries(mut data: &[u8]) -> alloc::vec::Vec<UstarFile> {
     let mut v = alloc::vec![];
 
-    loop {
-        if let Ok(ustar) = UstarFile::read_raw(data) {
-            let offset = 512+ustar.file_size();
-            let padding = if offset%512 > 0 {
-                512 - offset%512
-            } else {0};
-            data = &data[offset+padding..];
-            v.push(ustar);
+    while let Ok(ustar) = UstarFile::read_raw(data) {
+        let offset = 512 + ustar.file_size();
+        let padding = if offset % 512 > 0 {
+            512 - offset % 512
         } else {
-            break
-        }
+            0
+        };
+        data = &data[offset + padding..];
+        v.push(ustar);
     }
 
     v
@@ -174,12 +179,12 @@ fn oct_to_u32(oct: &[u8]) -> Result<u32, UstarFormatError> {
     let mut n = 0u32;
     for &d in oct {
         if d == 0 {
-            break
+            break;
         } else if (b'0'..=b'7').contains(&d) {
             n <<= 3; // Multiply by 8
             n |= (d & 0x07) as u32; // Least significant three bits hold the value of the digit, so add them to our sum.
         } else {
-            return Err(UstarFormatError::UnexpectedNonOctalChar)
+            return Err(UstarFormatError::UnexpectedNonOctalChar);
         }
     }
 
