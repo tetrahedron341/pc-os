@@ -1,4 +1,4 @@
-use x86_64::structures::paging::{OffsetPageTable, PageTable, PhysFrame};
+use x86_64::structures::paging::{OffsetPageTable, PageTable, PhysFrame, Size4KiB};
 
 use super::{allocate_frame, phys_to_virt, PhysAddr, MAPPER};
 
@@ -13,7 +13,7 @@ pub struct Space {
 
 impl Space {
     pub fn new() -> Self {
-        let page_table_frame = allocate_frame().unwrap();
+        let page_table_frame = allocate_frame::<Size4KiB>().unwrap();
 
         let mut s = Space {
             cr3: page_table_frame.start_address(),

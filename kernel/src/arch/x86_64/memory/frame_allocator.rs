@@ -1,4 +1,5 @@
 mod buddy;
-mod mmap;
+// mod mmap;
 
-pub use mmap::BootInfoFrameAllocator;
+pub use buddy::BuddyAllocatorManager;
+// pub use mmap::BootInfoFrameAllocator;

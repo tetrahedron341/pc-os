@@ -48,8 +48,8 @@ pub fn init_heap(// mapper: &mut impl Mapper<Size4KiB>,
 
     crate::serial_print!("[alloc] Mapping heap pages... ");
     for page in page_range {
-        let frame =
-            crate::arch::memory::allocate_frame().ok_or(MapToError::FrameAllocationFailed)?;
+        let frame = crate::arch::memory::allocate_frame::<Size4KiB>()
+            .ok_or(MapToError::FrameAllocationFailed)?;
         unsafe {
             crate::arch::memory::map_page(page, frame);
         }
