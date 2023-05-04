@@ -24,21 +24,21 @@ pub fn kernel_main(init_services: InitServices) -> ! {
 
     crate::serial_println!("[init] Initializing console...");
 
-    if let Some(fb) = init_services.framebuffer {
-        // let width = fb.info().width;
-        // let height = fb.info().height;
-        // // let bg_rect = GfxRectangle::with(width, height, |x, y| {
-        // //     let u = x as f64 / width as f64;
-        // //     let v = y as f64 / height as f64;
-        // //     Pixel::new_rgb(((1.0 - u) * 255.9) as u8, 0, ((1.0 - v) * 255.9) as u8)
-        // //     // let n = x + y;
-        // //     // Pixel::new_rgb(
-        // //     //     if n % 8 < 4 { 255 } else { 0 },
-        // //     //     if n % 16 < 8 { 255 } else { 0 },
-        // //     //     if n % 32 < 16 { 255 } else { 0 },
-        // //     // )
-        // // });
-        // // fb.blit(&bg_rect, (0, 0));
+    if let Some(mut fb) = init_services.framebuffer {
+        let width = fb.info().width;
+        let height = fb.info().height;
+        let bg_rect = GfxRectangle::with(width, height, |x, y| {
+            let u = x as f64 / width as f64;
+            let v = y as f64 / height as f64;
+            Pixel::new_rgb(((1.0 - u) * 255.9) as u8, 0, ((1.0 - v) * 255.9) as u8)
+            // let n = x + y;
+            // Pixel::new_rgb(
+            //     if n % 8 < 4 { 255 } else { 0 },
+            //     if n % 16 < 8 { 255 } else { 0 },
+            //     if n % 32 < 16 { 255 } else { 0 },
+            // )
+        });
+        fb.blit(&bg_rect, (0, 0));
 
         let mut console = video::console::Console::new(fb as Box<dyn Framebuffer + Send>);
 

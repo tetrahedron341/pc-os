@@ -6,6 +6,7 @@ use alloc::boxed::Box;
 use bootloader::BootInfo;
 
 use crate::arch::memory::mmap::MemoryRegion;
+use crate::arch::memory::VirtAddr;
 use crate::arch::{self, memory};
 use crate::video::framebuffer::PixelFormat;
 use crate::video::Framebuffer;
@@ -44,7 +45,12 @@ fn initialize(boot_info: &'static mut bootloader::BootInfo) -> crate::init::Init
         mmap
     };
 
-    unsafe { arch::x86_64::memory::init(boot_info.recursive_index.into_option().unwrap(), mmap) };
+    unsafe {
+        arch::x86_64::memory::init(
+            VirtAddr::new(boot_info.physical_memory_offset.into_option().unwrap()),
+            mmap,
+        )
+    };
     crate::allocator::init_heap().unwrap();
     arch::x86_64::syscall::init();
 
