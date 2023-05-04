@@ -67,3 +67,9 @@ unsafe fn get_page_table(recursive_index: u16) -> &'static mut PageTable {
 
     &mut *addr.as_mut_ptr()
 }
+
+const PHYS_MEM_OFFSET: u64 = 0x0000_4000_0000_0000;
+
+pub fn phys_to_virt(phys: x86_64::PhysAddr) -> x86_64::VirtAddr {
+    x86_64::VirtAddr::new(phys.as_u64() + PHYS_MEM_OFFSET)
+}
