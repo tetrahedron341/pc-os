@@ -7,7 +7,7 @@ build = "build.rs"
 
 [package.metadata.bootloader]
 map-page-table-recursively = true
-minimum-framebuffer-height = 600
+minimum-framebuffer-height = 900
 modules = [{ name = "initrd", path = "../initrd/initrd.tar" }]
 map-physical-memory = true
 physical-memory-offset = 0x0000_4000_0000_0000
@@ -17,7 +17,6 @@ bootloader = { git = "https://github.com/tetrahedron341/bootloader" }
 volatile = "0.2.6"
 lazy_static = { version = "*", features = ["spin_no_std"] }
 spin = "0.9"
-x86_64 = "0.14.6"
 uart_16550 = "0.2.10"
 pic8259 = "0.10"
 pc-keyboard = "0.5.0"
@@ -36,14 +35,23 @@ core2 = { version = "0.3.2", default-features = false, features = [
     "alloc",
     "nightly",
 ] }
+cfg-if = "1.0.0"
+[target.'cfg(target_arch = "x86_64")'.dependencies]
+x86_64 = "0.14.6"
+
+[features]
+custom_panic = []
 
 [[test]]
 name = "should_panic"
 harness = false
+required-features = ["custom_panic"]
 
 [[test]]
 name = "stack_overflow"
 harness = false
+required-features = ["custom_panic"]
+
 
 [build-dependencies]
 bindgen = "0.59.1"

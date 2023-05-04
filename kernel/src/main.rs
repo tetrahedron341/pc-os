@@ -1,42 +1,18 @@
 #![no_std]
 #![no_main]
 #![feature(custom_test_frameworks)]
-#![test_runner(crate::test_runner)]
+#![test_runner(crate::test::test_runner)]
 #![reexport_test_harness_main = "test_main"]
 
 extern crate alloc;
 
 use ::log::*;
 use bootloader::BootInfo;
-use core::panic::PanicInfo;
 
 use kernel::*;
 
 const SERIAL_LOG_MIN: LevelFilter = LevelFilter::Info;
 const CONSOLE_LOG_MIN: LevelFilter = LevelFilter::Warn;
-
-#[panic_handler]
-#[cfg(not(test))]
-fn panic(info: &PanicInfo) -> ! {
-    // The kernel will never return from a panic anyways, and printing panic
-    // information takes priority over being in a usable state afterwards.
-    // FIXME: When we implement multiprocessing, we need to signal all other threads to stop execution first.
-    unsafe {
-        video::console::CONSOLE.force_unlock();
-        serial::SERIAL1.force_unlock();
-    }
-
-    serial_println!("{}", info);
-    println!("{}", info);
-
-    hlt_loop();
-}
-
-#[panic_handler]
-#[cfg(test)]
-fn panic(info: &PanicInfo) -> ! {
-    test_panic_handler(info);
-}
 
 bootloader::entry_point!(main);
 

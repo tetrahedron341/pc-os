@@ -75,7 +75,7 @@ extern "x86-interrupt" fn page_fault_handler(
     stack_frame: InterruptStackFrame,
     error_code: x86_64::structures::idt::PageFaultErrorCode,
 ) {
-    use crate::{hlt_loop, print, println};
+    use crate::{arch::loop_forever, print, println};
     use x86_64::registers::control::Cr2;
     use x86_64::structures::idt::PageFaultErrorCode;
     println!("EXCEPTION: PAGE FAULT");
@@ -86,7 +86,7 @@ extern "x86-interrupt" fn page_fault_handler(
     }
     println!("{:?}", error_code);
     println!("{:#?}", stack_frame);
-    hlt_loop();
+    loop_forever();
 }
 
 extern "x86-interrupt" fn timer_interrupt_handler(_stack_frame: InterruptStackFrame) {

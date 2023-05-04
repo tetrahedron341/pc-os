@@ -3,7 +3,7 @@
 #![feature(abi_x86_interrupt)]
 
 use core::panic::PanicInfo;
-use kernel::{exit_qemu, serial_print, serial_println, QemuExitCode};
+use kernel::{serial_print, serial_println, test::exit_qemu, test::QemuExitCode};
 use volatile::Volatile;
 
 #[no_mangle] // don't mangle the name of this function
