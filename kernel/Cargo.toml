@@ -23,27 +23,29 @@ pc-keyboard = "0.5.0"
 linked_list_allocator = "0.9"
 conquer-once = { version = "0.2.0", default-features = false }
 crossbeam-queue = { version = "0.2.1", default-features = false, features = [
-    "alloc",
+  "alloc",
 ] }
 futures-util = { version = "0.3.4", default-features = false, features = [
-    "alloc",
+  "alloc",
 ] }
 log = { version = "0.4", default-features = false }
 goblin = { version = "0.2.3", default-features = false, features = ["elf64"] }
 acpi = "4.0.0"
 core2 = { version = "0.3.2", default-features = false, features = [
-    "alloc",
-    "nightly",
+  "alloc",
+  "nightly",
 ] }
 cfg-if = "1.0.0"
+limine = { version = "0.1.8", optional = true }
 [target.'cfg(target_arch = "x86_64")'.dependencies]
 x86_64 = "0.14.6"
 
 [features]
-default = ["phil_opp_bootloader"]
+default = ["limine_bootloader"]
 custom_panic = []
 custom_entry_point = []
 phil_opp_bootloader = ["bootloader"]
+limine_bootloader = ["limine"]
 
 [[test]]
 name = "should_panic"

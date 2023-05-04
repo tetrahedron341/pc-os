@@ -1,5 +1,3 @@
-#[cfg_attr(feature = "phil_opp_bootloader", path = "boot/phil_opp_bootloader.rs")]
-mod boot;
 pub mod context;
 mod gdt;
 mod init;
@@ -12,4 +10,12 @@ pub fn loop_forever() -> ! {
     loop {
         x86_64::instructions::hlt()
     }
+}
+
+mod boot {
+    #[cfg(feature = "phil_opp_bootloader")]
+    mod phil_opp_bootloader;
+
+    #[cfg(feature = "limine_bootloader")]
+    mod limine;
 }
