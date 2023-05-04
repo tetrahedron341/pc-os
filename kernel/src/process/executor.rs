@@ -117,23 +117,22 @@ impl Executor {
         ss.set_rpl(x86_64::PrivilegeLevel::Ring3);
         let mut cs = crate::gdt::GDT.1.user_code_selector;
         cs.set_rpl(x86_64::PrivilegeLevel::Ring3);
-        x86_64::instructions::interrupts::without_interrupts(|| {
-            let ss = ss.0 as u64;
-            let cs = cs.0 as u64;
-            let rip = ip as u64;
-            asm!(
-                "push {ss}",
-                "push {rsp}",
-                "pushf",
-                "push {cs}",
-                "push {rip}",
-                "iretq",
-                ss = in(reg) ss,
-                rsp = in(reg) rsp,
-                cs = in(reg) cs,
-                rip = in(reg) rip,
-            );
-        });
+        let ss = ss.0 as u64;
+        let cs = cs.0 as u64;
+        let rip = ip as u64;
+        asm!(
+            "push {ss}",
+            "push {rsp}",
+            "pushf",
+            "push {cs}",
+            "push {rip}",
+            "iretq",
+            ss = in(reg) ss,
+            rsp = in(reg) rsp,
+            cs = in(reg) cs,
+            rip = in(reg) rip,
+        );
+
         core::hint::unreachable_unchecked()
     }
 

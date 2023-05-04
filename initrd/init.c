@@ -10,8 +10,13 @@ void _start()
     }
 
     char *text = "Hello from userland C!\n";
-    for (int i = 0; text[i]; i++) {
-	putchar(text[i]);
+    for (int i = 0; text[i]; i++)
+    {
+        putchar(text[i]);
+    }
+
+    while (1)
+    {
     }
 
     abort();
