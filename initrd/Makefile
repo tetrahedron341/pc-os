@@ -1,7 +1,7 @@
 BINS = init
 FILES = $(BINS) hello.txt
 LDFLAGS = -nostdlib -L../libc -lc 
-CFLAGS = -I../libc/include -ffreestanding
+CFLAGS = -I../libc/include -I../kernel-uapi/include -ffreestanding
 
 .PHONY: clean libc
 

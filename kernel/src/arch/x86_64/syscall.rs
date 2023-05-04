@@ -1,6 +1,6 @@
 use core::arch::asm;
 
-use crate::syscall::{SyscallOp, SyscallStatus};
+use kernel_uapi::syscall::{Syscall, SyscallResult};
 
 static mut STACK: [u8; 32 * 1024] = [0; 32 * 1024];
 static mut SYSCALL_RSP: *const u8 = unsafe { &STACK[STACK.len() - 8] as *const u8 };
@@ -8,6 +8,10 @@ static mut RETURN_RSP: *const u8 = core::ptr::null();
 
 #[naked]
 unsafe extern "C" fn _syscall_handler() {
+    extern "C" fn syscall_handler(syscall: &mut Syscall, out: *mut SyscallResult) {
+        unsafe { *out = crate::syscall::syscall_handler(syscall) }
+    }
+
     asm! {
         "mov [{ret_rsp} + rip], rsp",
         "mov rsp, [{sys_rsp} + rip]",
@@ -46,40 +50,4 @@ pub fn init() {
 
     // Load the appropriate segment selectors to IA32_STAR
     Star::write(user_cs, user_ss, kernel_cs, kernel_ss).unwrap();
-}
-
-extern "C" fn syscall_handler() {
-    let (op, args) = unsafe {
-        let op: u64;
-        let [arg0, arg1, arg2, arg3]: [u64; 4];
-        asm!(
-            "mov {op}, rax",
-            "mov {arg0}, rdi",
-            "mov {arg1}, rsi",
-            "mov {arg2}, rdx",
-            "mov {arg3}, r8",
-            op = out(reg) op,
-            arg0 = out(reg) arg0,
-            arg1 = out(reg) arg1,
-            arg2 = out(reg) arg2,
-            arg3 = out(reg) arg3,
-        );
-        (op, [arg0, arg1, arg2, arg3])
-    };
-
-    let r: u64 = {
-        let op = u32::try_from(op).ok();
-        if let Some(op) = op.and_then(|op| SyscallOp::new(op, args)) {
-            crate::syscall::syscall_dispatch(op)
-        } else {
-            SyscallStatus::InvalidOp
-        }
-    }
-    .into();
-    unsafe {
-        asm!(
-            "mov rax, {r}",
-            r = in(reg) r
-        )
-    }
 }

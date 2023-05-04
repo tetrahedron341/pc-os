@@ -1,73 +1,62 @@
-mod dispatch;
-pub use dispatch::syscall_dispatch;
+use crate::process::ProcessState;
 
-use crate::uapi::*;
-use core::convert::TryFrom;
+use kernel_uapi::syscall::{Syscall, SyscallErrorCode, SyscallResult, SyscallResultInner};
+use log::info;
 
-#[repr(u32)]
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub enum SyscallOpCode {
-    /// Print out "Ping!" to the console screen
-    Ping = SYS_PING,
-    PutChar = SYS_PUTCHAR,
-    GetKbdCode = SYS_GETCHAR,
-    SleepMs = SYS_SLEEP_MS,
-
-    /// Exits the current process
-    Exit = SYS_EXIT,
-}
-
-impl TryFrom<u32> for SyscallOpCode {
-    type Error = ();
-    fn try_from(value: u32) -> Result<Self, Self::Error> {
-        use SyscallOpCode::*;
-        match value {
-            SYS_PING => Ok(Ping),
-            SYS_PUTCHAR => Ok(PutChar),
-            SYS_GETCHAR => Ok(GetKbdCode),
-            SYS_SLEEP_MS => Ok(SleepMs),
-
-            SYS_EXIT => Ok(Exit),
-            _ => Err(()),
+pub extern "C" fn syscall_handler(op: &mut Syscall) -> SyscallResult {
+    crate::serial_println!("Syscall: op: {:?}", core::mem::discriminant(op));
+    match op {
+        Syscall::ping { .. } => {
+            info!("Ping!");
+            Ok(SyscallResultInner { ping: 0 }).into()
         }
+        Syscall::put_char { c } => {
+            let c = char::from(*c);
+            if ('\x20'..='\x7E').contains(&c) || c == '\n' {
+                crate::print!("{}", c);
+                Ok(SyscallResultInner { put_char: 0 }).into()
+            } else {
+                Err(SyscallErrorCode::InvalidArgumentError).into()
+            }
+        }
+        Syscall::get_kbd_code { .. } => {
+            unimplemented!()
+        }
+        Syscall::sleep_ms { .. } => {
+            let p = x86_64::instructions::interrupts::without_interrupts(|| {
+                let cpu = crate::arch::cpu::this_cpu();
+                cpu.try_take_process()
+                    .expect("`sleep_ms` syscall not within a process")
+            });
+            let p_state = core::mem::replace(&mut p.state, ProcessState::Waiting);
+            let waker = match p_state {
+                ProcessState::Running(w) => w,
+                _ => unreachable!(),
+            };
+            {
+                let mut exec = crate::task::EXECUTOR.get().unwrap().lock();
+                exec.spawn(async {
+                    crate::task::timer::wait_n_ticks(100).await;
+                    waker.wake();
+                });
+            };
+
+            x86_64::instructions::interrupts::without_interrupts(|| {
+                let cpu = crate::arch::cpu::this_cpu();
+                cpu.return_from_process(p);
+            });
+
+            Ok(SyscallResultInner { sleep_ms: 0 }).into()
+        }
+        Syscall::exit { .. } => x86_64::instructions::interrupts::without_interrupts(|| {
+            let cpu = crate::arch::cpu::this_cpu();
+            let p = cpu
+                .try_take_process()
+                .expect("`exit` syscall not within a process");
+            p.state = ProcessState::Killed;
+            cpu.return_from_process(p);
+
+            panic!("Tried to run a killed process")
+        }),
     }
 }
-
-#[repr(C, packed)]
-#[derive(Debug, Clone, Copy)]
-pub struct SyscallOp {
-    pub opcode: SyscallOpCode,
-    pub args: [u64; 4],
-}
-
-impl SyscallOp {
-    pub fn new(opcode: u32, args: [u64; 4]) -> Option<Self> {
-        let opcode = SyscallOpCode::try_from(opcode).ok()?;
-        Some(SyscallOp { opcode, args })
-    }
-}
-
-#[repr(u64)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum SyscallStatus {
-    Ok = 0,
-    Error = 0x8000000000000000,
-    InvalidOp = 0xFFFFFFFFFFFFFFFF,
-}
-
-impl From<SyscallStatus> for u64 {
-    fn from(val: SyscallStatus) -> Self {
-        val as u64
-    }
-}
-
-// /// Triggers a syscall.
-// #[no_mangle]
-// pub extern "C" fn syscall(op: SyscallOp, ptr: *mut u8) -> SyscallStatus {
-//     let status: u64;
-//     unsafe {
-//         asm!("syscall", inout("r14") core::mem::transmute::<_,u64>(op) => _, inout("r15") ptr => status);
-
-//         core::mem::transmute(status)
-//     }
-// }
