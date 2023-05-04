@@ -3,7 +3,7 @@ use core::arch::asm;
 use kernel_uapi::syscall::{Syscall, SyscallResult};
 
 static mut STACK: [u8; 32 * 1024] = [0; 32 * 1024];
-static mut SYSCALL_RSP: *const u8 = unsafe { &STACK[STACK.len() - 8] as *const u8 };
+static mut SYSCALL_RSP: *const u8 = unsafe { STACK.as_ptr().add(STACK.len()) };
 static mut RETURN_RSP: *const u8 = core::ptr::null();
 
 #[naked]
