@@ -1,15 +1,14 @@
-use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
-use pic8259_simple::ChainedPics;
-use spin;
 use crate::gdt;
 use lazy_static::lazy_static;
+use pic8259::ChainedPics;
+use spin;
+use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
 
 pub const PIC_1_OFFSET: u8 = 32;
 pub const PIC_2_OFFSET: u8 = PIC_1_OFFSET + 8;
 
-pub static PICS: spin::Mutex<ChainedPics> = spin::Mutex::new(unsafe {
-    ChainedPics::new(PIC_1_OFFSET, PIC_2_OFFSET)
-});
+pub static PICS: spin::Mutex<ChainedPics> =
+    spin::Mutex::new(unsafe { ChainedPics::new(PIC_1_OFFSET, PIC_2_OFFSET) });
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 #[repr(u8)]
@@ -35,7 +34,8 @@ lazy_static! {
         let mut idt = InterruptDescriptorTable::new();
         idt.breakpoint.set_handler_fn(breakpoint_handler);
         unsafe {
-            idt.double_fault.set_handler_fn(double_fault_handler)
+            idt.double_fault
+                .set_handler_fn(double_fault_handler)
                 .set_stack_index(gdt::DOUBLE_FAULT_IST_INDEX);
         }
         idt.page_fault.set_handler_fn(page_fault_handler);
@@ -46,7 +46,9 @@ lazy_static! {
     };
 }
 
-pub struct IdtService { _private: () }
+pub struct IdtService {
+    _private: (),
+}
 
 pub fn init_idt() -> IdtService {
     IDT.load();
@@ -56,29 +58,36 @@ pub fn init_idt() -> IdtService {
     IdtService { _private: () }
 }
 
-extern "x86-interrupt" fn breakpoint_handler(stack_frame: &mut InterruptStackFrame) {
+extern "x86-interrupt" fn breakpoint_handler(stack_frame: InterruptStackFrame) {
     crate::println!("EXCEPTION: BREAKPOINT\n{:#?}", stack_frame);
 }
 
-extern "x86-interrupt" fn double_fault_handler(stack_frame: &mut InterruptStackFrame, _error_code: u64) -> ! {
+extern "x86-interrupt" fn double_fault_handler(
+    stack_frame: InterruptStackFrame,
+    _error_code: u64,
+) -> ! {
     panic!("EXCEPTION: DOUBLE FAULT\n{:#?}", stack_frame);
 }
 
-extern "x86-interrupt" fn page_fault_handler(stack_frame: &mut InterruptStackFrame, error_code: x86_64::structures::idt::PageFaultErrorCode) {
+extern "x86-interrupt" fn page_fault_handler(
+    stack_frame: InterruptStackFrame,
+    error_code: x86_64::structures::idt::PageFaultErrorCode,
+) {
+    use crate::{hlt_loop, print, println};
     use x86_64::registers::control::Cr2;
     use x86_64::structures::idt::PageFaultErrorCode;
-    use crate::{println, print, hlt_loop};
     println!("EXCEPTION: PAGE FAULT");
     println!("Accessed address: {:?}", Cr2::read());
     print!("Error code: ");
-    if !error_code.contains(PageFaultErrorCode::PROTECTION_VIOLATION) { print!("NOT_PRESENT | "); }
+    if !error_code.contains(PageFaultErrorCode::PROTECTION_VIOLATION) {
+        print!("NOT_PRESENT | ");
+    }
     println!("{:?}", error_code);
     println!("{:#?}", stack_frame);
     hlt_loop();
 }
 
-extern "x86-interrupt" fn timer_interrupt_handler(_stack_frame: &mut InterruptStackFrame)
-{
+extern "x86-interrupt" fn timer_interrupt_handler(_stack_frame: InterruptStackFrame) {
     crate::task::timer::tick_timer();
 
     unsafe {
@@ -87,13 +96,12 @@ extern "x86-interrupt" fn timer_interrupt_handler(_stack_frame: &mut InterruptSt
     }
 }
 
-extern "x86-interrupt" fn keyboard_interrupt_handler(_stack_frame: &mut InterruptStackFrame)
-{
+extern "x86-interrupt" fn keyboard_interrupt_handler(_stack_frame: InterruptStackFrame) {
     use x86_64::instructions::port::Port;
-    
+
     let mut port = Port::new(0x60);
 
-    let scancode: u8 = unsafe {port.read()};
+    let scancode: u8 = unsafe { port.read() };
     crate::task::keyboard::add_scancode(scancode);
 
     unsafe {

@@ -3,9 +3,7 @@
 #![feature(custom_test_frameworks)]
 #![feature(abi_x86_interrupt)]
 #![feature(alloc_error_handler)]
-#![feature(const_fn)]
 #![feature(const_mut_refs)]
-#![feature(const_in_array_repeat_expressions)]
 #![feature(wake_trait)]
 #![feature(assoc_char_funcs)]
 #![feature(asm)]
@@ -15,19 +13,19 @@
 
 extern crate alloc;
 
-pub mod serial;
-pub mod interrupts;
-pub mod gdt;
-pub mod memory;
-pub mod allocator;
-pub mod task;
-pub mod log;
-pub mod video;
-pub mod process;
-pub mod syscall;
-pub mod file;
 pub mod acpi;
+pub mod allocator;
+pub mod file;
+pub mod gdt;
 pub mod init;
+pub mod interrupts;
+pub mod log;
+pub mod memory;
+pub mod process;
+pub mod serial;
+pub mod syscall;
+pub mod task;
+pub mod video;
 
 use core::panic::PanicInfo;
 
