@@ -24,11 +24,11 @@ pub fn init() {
     // Load the syscall function pointer into IA32_LSTAR
     LStar::write(VirtAddr::new(_syscall_handler as *const () as usize as u64));
 
-    use crate::gdt::GDT;
-    let kernel_cs = GDT.1.code_selector;
-    let kernel_ss = GDT.1.data_selector;
-    let user_cs = GDT.1.user_code_selector;
-    let user_ss = GDT.1.user_data_selector;
+    use super::gdt::SELECTORS;
+    let kernel_cs = SELECTORS.code_selector;
+    let kernel_ss = SELECTORS.data_selector;
+    let user_cs = SELECTORS.user_code_selector;
+    let user_ss = SELECTORS.user_data_selector;
 
     // Load the appropriate segment selectors to IA32_STAR
     Star::write(user_cs, user_ss, kernel_cs, kernel_ss).unwrap();
@@ -48,7 +48,7 @@ extern "C" fn syscall_handler() {
         (r14, r15 as usize as *mut u8)
     };
 
-    let r: u64 = super::dispatch::syscall_dispatch(op, ptr).into();
+    let r: u64 = crate::syscall::syscall_dispatch(op, ptr).into();
     unsafe {
         asm!(
             "mov r14, {r}",

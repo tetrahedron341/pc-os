@@ -23,16 +23,30 @@ lazy_static! {
         tss
     };
 
-    pub static ref GDT: (GlobalDescriptorTable, Selectors) = {
+    static ref _GDT: (GlobalDescriptorTable, Selectors) = {
         let mut gdt = GlobalDescriptorTable::new();
         let code_selector = gdt.add_entry(Descriptor::kernel_code_segment());
         use x86_64::structures::gdt::DescriptorFlags as Flags;
-        let data_selector = gdt.add_entry(Descriptor::UserSegment((Flags::USER_SEGMENT | Flags::PRESENT | Flags::WRITABLE).bits()));
+        let data_selector = gdt.add_entry(Descriptor::UserSegment(
+            Flags::USER_SEGMENT.bits() | Flags::PRESENT.bits() | Flags::WRITABLE.bits(),
+        ));
         let tss_selector = gdt.add_entry(Descriptor::tss_segment(&TSS));
         let user_data_selector = gdt.add_entry(Descriptor::user_data_segment());
         let user_code_selector = gdt.add_entry(Descriptor::user_code_segment());
-        (gdt, Selectors {code_selector, data_selector, tss_selector, user_code_selector, user_data_selector})
+        (
+            gdt,
+            Selectors {
+                code_selector,
+                data_selector,
+                tss_selector,
+                user_code_selector,
+                user_data_selector,
+            },
+        )
     };
+
+    pub static ref GDT: &'static GlobalDescriptorTable = &_GDT.0;
+    pub static ref SELECTORS: &'static Selectors = &_GDT.1;
 }
 
 pub struct Selectors {
@@ -43,22 +57,16 @@ pub struct Selectors {
     pub user_data_selector: SegmentSelector,
 }
 
-pub struct GdtService {
-    _private: (),
-}
-
-pub fn init() -> GdtService {
+pub fn init() {
     use x86_64::instructions::segmentation::Segment;
     use x86_64::instructions::tables::load_tss;
     use x86_64::registers::segmentation::{CS, SS};
 
-    GDT.0.load();
+    GDT.load();
 
     unsafe {
-        CS::set_reg(GDT.1.code_selector);
-        SS::set_reg(GDT.1.data_selector);
-        load_tss(GDT.1.tss_selector);
+        CS::set_reg(SELECTORS.code_selector);
+        SS::set_reg(SELECTORS.data_selector);
+        load_tss(SELECTORS.tss_selector);
     }
-
-    GdtService { _private: () }
 }

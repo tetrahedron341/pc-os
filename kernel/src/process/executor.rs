@@ -112,38 +112,38 @@ impl Executor {
         self.next_process();
     }
 
-    unsafe fn context_switch(&mut self, ip: usize, rsp: usize) -> ! {
-        let mut ss = crate::gdt::GDT.1.user_data_selector;
-        ss.set_rpl(x86_64::PrivilegeLevel::Ring3);
-        let mut cs = crate::gdt::GDT.1.user_code_selector;
-        cs.set_rpl(x86_64::PrivilegeLevel::Ring3);
-        let ss = ss.0 as u64;
-        let cs = cs.0 as u64;
-        let rip = ip as u64;
-        asm!(
-            "push {ss}",
-            "push {rsp}",
-            "pushf",
-            "push {cs}",
-            "push {rip}",
-            "iretq",
-            ss = in(reg) ss,
-            rsp = in(reg) rsp,
-            cs = in(reg) cs,
-            rip = in(reg) rip,
-        );
+    // unsafe fn context_switch(&mut self, ip: usize, rsp: usize) -> ! {
+    //     let mut ss = crate::arch::gdt::GDT.1.user_data_selector;
+    //     ss.set_rpl(x86_64::PrivilegeLevel::Ring3);
+    //     let mut cs = crate::arch::gdt::GDT.1.user_code_selector;
+    //     cs.set_rpl(x86_64::PrivilegeLevel::Ring3);
+    //     let ss = ss.0 as u64;
+    //     let cs = cs.0 as u64;
+    //     let rip = ip as u64;
+    //     asm!(
+    //         "push {ss}",
+    //         "push {rsp}",
+    //         "pushf",
+    //         "push {cs}",
+    //         "push {rip}",
+    //         "iretq",
+    //         ss = in(reg) ss,
+    //         rsp = in(reg) rsp,
+    //         cs = in(reg) cs,
+    //         rip = in(reg) rip,
+    //     );
 
-        core::hint::unreachable_unchecked()
-    }
+    //     core::hint::unreachable_unchecked()
+    // }
 
-    /// Enter user mode. Jumps into the currently running process in user mode. *This call will not return to the caller.*
-    pub fn run(&mut self) -> ! {
-        let Process {
-            registers: Registers { rip, rsp, .. },
-            ..
-        } = *self.current_process();
-        unsafe {
-            self.context_switch(rip, rsp);
-        }
-    }
+    // Enter user mode. Jumps into the currently running process in user mode. *This call will not return to the caller.*
+    // pub fn run(&mut self) -> ! {
+    //     let Process {
+    //         registers: Registers { rip, rsp, .. },
+    //         ..
+    //     } = *self.current_process();
+    //     unsafe {
+    //         self.context_switch(rip, rsp);
+    //     }
+    // }
 }
