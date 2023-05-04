@@ -5,5 +5,5 @@
 
 void ping()
 {
-    syscall(SYS_PING, (char *)0);
+    __syscall0(SYS_PING);
 }

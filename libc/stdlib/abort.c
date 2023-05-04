@@ -5,7 +5,7 @@
 
 __attribute__((__noreturn__)) void abort(void)
 {
-    syscall(SYS_EXIT, (char *)0);
+    __syscall1(SYS_EXIT, 0);
     while (1)
     {
     }

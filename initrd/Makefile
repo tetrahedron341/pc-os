@@ -3,7 +3,7 @@ FILES = $(BINS) hello.txt
 LDFLAGS = -nostdlib -L../libc -lc 
 CFLAGS = -I../libc/include -ffreestanding
 
-.PHONY: clean
+.PHONY: clean libc
 
 initrd.tar: $(FILES)
 	tar c $^ -f initrd.tar
@@ -14,5 +14,8 @@ clean:
 $(BINS) : % : %.o
 	ld $< -o $@ $(LDFLAGS)
 
-%.o: %.c
+%.o: libc %.c
 	cc -c $(CFLAGS) -o $*.o $*.c
+
+libc:
+	make -C ../libc
