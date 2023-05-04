@@ -84,6 +84,8 @@ pub fn kernel_main(init_services: InitServices) -> ! {
         println!("hello.txt contents:\n{}", s)
     }
 
+    crate::task::init_executor();
+
     if let Some(init) = fs.iter_mut().find(|f| f.file_name() == "init") {
         let init_elf = {
             use core2::io::Read;
@@ -95,16 +97,14 @@ pub fn kernel_main(init_services: InitServices) -> ! {
         init_process(&init_elf).unwrap();
     }
 
-    // crate::process::user_mode(fs, paging_service)
-    panic!("kernel_main finished successfully");
+    crate::task::run()
 }
 
 fn init_process(init_elf: &[u8]) -> Result<(), String> {
     let p = process::create_process_from_elf(init_elf)?;
 
-    let mut exec = crate::task::executor::Executor::new();
+    let mut exec = crate::task::EXECUTOR.get().unwrap().lock();
     exec.spawn(p);
     exec.spawn(crate::task::keyboard::print_keypresses());
-
-    exec.run()
+    Ok(())
 }

@@ -11,6 +11,7 @@ pub enum SyscallOpCode {
     Ping = SYS_PING as u8,
     PutChar = SYS_PUTCHAR as u8,
     GetKbdCode = SYS_GETCHAR as u8,
+    SleepMs = SYS_SLEEP_MS as u8,
 
     /// Exits the current process
     Exit = SYS_EXIT as u8,
@@ -24,6 +25,7 @@ impl TryFrom<u8> for SyscallOpCode {
             SYS_PING => Ok(Ping),
             SYS_PUTCHAR => Ok(PutChar),
             SYS_GETCHAR => Ok(GetKbdCode),
+            SYS_SLEEP_MS => Ok(SleepMs),
 
             SYS_EXIT => Ok(Exit),
             _ => Err(()),
