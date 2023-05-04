@@ -1,7 +1,7 @@
 use lazy_static::lazy_static;
+use x86_64::structures::gdt::{Descriptor, GlobalDescriptorTable, SegmentSelector};
 use x86_64::structures::tss::TaskStateSegment;
 use x86_64::VirtAddr;
-use x86_64::structures::gdt::{GlobalDescriptorTable, Descriptor, SegmentSelector};
 
 pub const DOUBLE_FAULT_IST_INDEX: u16 = 0;
 
@@ -45,17 +45,20 @@ pub struct Selectors {
     pub user_data_selector: SegmentSelector,
 }
 
-pub struct GdtService { _private: () }
+pub struct GdtService {
+    _private: (),
+}
 
 pub fn init() -> GdtService {
-    use x86_64::instructions::segmentation::{set_cs, load_ss};
+    use x86_64::instructions::segmentation::Segment;
     use x86_64::instructions::tables::load_tss;
+    use x86_64::registers::segmentation::{CS, SS};
 
     GDT.0.load();
 
     unsafe {
-        set_cs(GDT.1.code_selector);
-        load_ss(GDT.1.data_selector);
+        CS::set_reg(GDT.1.code_selector);
+        SS::set_reg(GDT.1.data_selector);
         load_tss(GDT.1.tss_selector);
     }
 
