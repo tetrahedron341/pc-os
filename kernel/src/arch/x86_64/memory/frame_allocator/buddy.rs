@@ -120,12 +120,12 @@ impl BuddyAllocator {
         );
         // mark the bitmap as used
         let bitmap_pages = bitmap_len.next_multiple_of(PAGE_SIZE) / PAGE_SIZE;
-        bitmap.dealloc_range(bitmap_pages..bitmap_len, 0).unwrap();
+        bitmap.dealloc_range(bitmap_pages..pages, 0).unwrap();
 
         BuddyAllocator {
             phys_start,
             region_size: size_bytes,
-            remaining: size_bytes - bitmap_len,
+            remaining: size_bytes - PAGE_SIZE*bitmap_pages,
             bitmap,
         }
     }
