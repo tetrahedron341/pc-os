@@ -2,15 +2,17 @@
 name = "kernel"
 version = "0.1.0"
 authors = ["Ben Engdahl <bengdahl341@gmail.com>"]
-edition = "2018"
+edition = "2021"
 build = "build.rs"
 
 [package.metadata.bootloader]
 map-page-table-recursively = true
 minimum-framebuffer-height = 600
+modules = [{ name = "initrd", path = "../initrd/initrd.tar" }]
 
 [dependencies]
-bootloader = { git = "https://github.com/bengdahl/bootloader" }
+# bootloader = { git = "https://github.com/bengdahl/bootloader" }
+bootloader = { path = "../../bootloader" }
 volatile = "0.2.6"
 lazy_static = { version = "*", features = ["spin_no_std"] }
 spin = "0.9"
@@ -30,6 +32,7 @@ log = { version = "0.4", default-features = false }
 goblin = { version = "0.2.3", default-features = false, features = ["elf64"] }
 acpi = "4.0.0"
 bare-io = { version = "0.2.1", features = ["alloc", "nightly"] }
+libkernel = { path = "../libkernel" }
 
 [[test]]
 name = "should_panic"

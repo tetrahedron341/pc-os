@@ -5,15 +5,7 @@ use std::{
     process::Command,
 };
 
-const RUN_ARGS: &[&str] = &[
-    "-no-shutdown",
-    "-no-reboot",
-    "-s",
-    "-serial",
-    "stdio",
-    "-vga",
-    "std",
-];
+const RUN_ARGS: &[&str] = &["-s", "-serial", "stdio", "-vga", "std"];
 
 const TEST_ARGS: &[&str] = &[
     "-device",
