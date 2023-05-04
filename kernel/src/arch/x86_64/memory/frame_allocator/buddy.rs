@@ -34,7 +34,6 @@ impl<const N: usize> BuddyAllocatorManager<N> {
             }
             let phys_start = PhysAddr::new(region.start as u64);
             let virt_start = phys_to_virt_offset.add(region.start);
-            crate::println!("Creating allocator in {region:?}");
 
             let e = BuddyAllocator::new(phys_start, virt_start, region.len);
 
