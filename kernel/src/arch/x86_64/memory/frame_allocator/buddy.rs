@@ -147,7 +147,7 @@ unsafe impl FrameAllocator<Size4KiB> for BuddyAllocator {
         let Ok(idx) = self.bitmap.alloc_range(1, 0) else {return None};
         let start = self.phys_start + idx.start * 4096;
         self.remaining -= 4096;
-        return Some(PhysFrame::from_start_address(start).unwrap());
+        Some(PhysFrame::from_start_address(start).unwrap())
     }
 }
 
@@ -156,7 +156,7 @@ unsafe impl FrameAllocator<Size2MiB> for BuddyAllocator {
         let Ok(idx) = self.bitmap.alloc_range(1<<9, 0) else {return None};
         let start = self.phys_start + idx.start * 4096;
         self.remaining -= 4096 * 512;
-        return Some(PhysFrame::from_start_address(start).unwrap());
+        Some(PhysFrame::from_start_address(start).unwrap())
     }
 }
 
@@ -165,7 +165,7 @@ unsafe impl FrameAllocator<Size1GiB> for BuddyAllocator {
         let Ok(idx) = self.bitmap.alloc_range(1<<18, 0) else {return None};
         let start = self.phys_start + idx.start * 4096;
         self.remaining -= 4096 * 512 * 512;
-        return Some(PhysFrame::from_start_address(start).unwrap());
+        Some(PhysFrame::from_start_address(start).unwrap())
     }
 }
 
@@ -286,21 +286,19 @@ impl<'storage> BuddyBitmap<'storage> {
         if let Some(idx) = blocks.first_zero() {
             return Err(AllocErr::DoubleFree { idx, layer });
         }
-        let above_start: usize;
-        let above_end: usize;
         // dealloc anything on the edges that isn't paired
-        if idx_range.start % 2 == 1 {
+        let above_start = if idx_range.start % 2 == 1 {
             self.dealloc_bit(idx_range.start, layer)?;
-            above_start = (idx_range.start + 1) / 2;
+            (idx_range.start + 1) / 2
         } else {
-            above_start = idx_range.start / 2;
-        }
-        if idx_range.end % 2 == 1 {
+            idx_range.start / 2
+        };
+        let above_end = if idx_range.end % 2 == 1 {
             self.dealloc_bit(idx_range.end - 1, layer)?;
-            above_end = (idx_range.end - 1) / 2;
+            (idx_range.end - 1) / 2
         } else {
-            above_end = idx_range.end / 2;
-        }
+            idx_range.end / 2
+        };
 
         let above_idx_range = above_start..above_end;
         if !above_idx_range.is_empty() {
@@ -316,7 +314,7 @@ impl<'storage> BuddyBitmap<'storage> {
         let num_layers = self.num_layers;
         // top layer
         if layer == num_layers - 1 {
-            if self.get_layer_mut(layer).replace(0, false) == false {
+            if !self.get_layer_mut(layer).replace(0, false) {
                 return Err(AllocErr::DoubleFree { idx, layer });
             } else {
                 return Ok(());
@@ -336,7 +334,7 @@ impl<'storage> BuddyBitmap<'storage> {
             let buddy = pair[(idx + 1) % 2].take().unwrap();
             (bit, buddy)
         };
-        if bit.replace(false) == false {
+        if !bit.replace(false) {
             return Err(AllocErr::DoubleFree { idx, layer });
         }
         if (layer + 1) < num_layers && buddy == false {
@@ -344,7 +342,7 @@ impl<'storage> BuddyBitmap<'storage> {
             buddy.set(true);
             drop(bit);
             drop(buddy);
-            return self.dealloc_bit(idx / 2, layer + 1);
+            self.dealloc_bit(idx / 2, layer + 1)
         } else {
             Ok(())
         }
@@ -381,7 +379,7 @@ impl<'storage> BuddyBitmap<'storage> {
             return Err(AllocErr::LayerDoesNotExist { layer });
         }
         if len == 0 {
-            return Ok(0..0);
+            Ok(0..0)
         } else if len == 1 {
             let idx = self.alloc_bit(layer)?;
             return Ok(idx..idx + 1);
