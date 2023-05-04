@@ -20,7 +20,6 @@ pub mod boot;
 pub mod file;
 pub mod init;
 pub mod log;
-pub mod memory;
 #[cfg(not(feature = "custom_panic"))]
 mod panic;
 pub mod process;
