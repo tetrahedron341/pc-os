@@ -7,7 +7,6 @@ use bootloader::BootInfo;
 
 use crate::arch::memory::mmap::MemoryRegion;
 use crate::arch::{self, memory};
-use crate::boot::BootModule;
 use crate::video::framebuffer::PixelFormat;
 use crate::video::Framebuffer;
 
@@ -49,11 +48,11 @@ fn initialize(boot_info: &'static mut bootloader::BootInfo) -> crate::init::Init
     crate::allocator::init_heap().unwrap();
     arch::x86_64::syscall::init();
 
-    let modules = boot_info
-        .modules
-        .iter()
-        .map(|m| unsafe { load_module(*m) })
-        .collect();
+    // let modules = boot_info
+    //     .modules
+    //     .iter()
+    //     .map(|m| unsafe { load_module(*m) })
+    //     .collect();
 
     x86_64::instructions::interrupts::enable();
 
@@ -69,25 +68,28 @@ fn initialize(boot_info: &'static mut bootloader::BootInfo) -> crate::init::Init
         .as_mut()
         .map(|fb: &'static mut _| Box::new(fb) as Box<dyn Framebuffer + Send + Sync>);
 
-    crate::serial_println!("[phil_opp_bootloader] Handing over to the kernel");
+    crate::serial_println!(
+        "[phil_opp_bootloader] Handing over to the kernel ({:?})",
+        crate::init::kernel_main as *const fn(crate::init::InitServices) -> !
+    );
 
     crate::init::InitServices {
-        modules,
+        modules: alloc::vec![],
         framebuffer,
     }
 }
 
-unsafe fn load_module(module_desc: bootloader::boot_info::Module) -> BootModule {
-    let ptr = arch::x86_64::memory::phys_to_virt(x86_64::PhysAddr::new(module_desc.phys_addr))
-        .as_mut_ptr();
-    BootModule {
-        name: core::str::from_utf8(&module_desc.name)
-            .unwrap()
-            .trim_end_matches('\0')
-            .into(),
-        data: core::slice::from_raw_parts_mut(ptr, module_desc.len),
-    }
-}
+// unsafe fn load_module(module_desc: bootloader::boot_info::Module) -> BootModule {
+//     let ptr = arch::x86_64::memory::phys_to_virt(x86_64::PhysAddr::new(module_desc.phys_addr))
+//         .as_mut_ptr();
+//     BootModule {
+//         name: core::str::from_utf8(&module_desc.name)
+//             .unwrap()
+//             .trim_end_matches('\0')
+//             .into(),
+//         data: core::slice::from_raw_parts_mut(ptr, module_desc.len),
+//     }
+// }
 
 impl From<bootloader::boot_info::MemoryRegionKind> for memory::mmap::MemoryKind {
     fn from(k: bootloader::boot_info::MemoryRegionKind) -> Self {
