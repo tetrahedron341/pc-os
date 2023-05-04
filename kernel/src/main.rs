@@ -11,7 +11,7 @@ use ::log::*;
 use bootloader::BootInfo;
 use core::panic::PanicInfo;
 
-use pc_os::*;
+use kernel::*;
 
 const SERIAL_LOG_MIN: LevelFilter = LevelFilter::Info;
 const CONSOLE_LOG_MIN: LevelFilter = LevelFilter::Warn;
@@ -89,7 +89,7 @@ fn main(boot_info: &'static mut BootInfo) -> ! {
     println!("Hello from {}x{} VESA!", width, height);
 
     let mut fs = {
-        static INITRD: &[u8] = include_bytes!("../initrd/initrd.tar");
+        static INITRD: &[u8] = include_bytes!("../../initrd/initrd.tar");
         file::ustar::get_all_entries(INITRD)
     };
     for entry in fs.iter() {
