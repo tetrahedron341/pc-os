@@ -99,6 +99,13 @@ extern "x86-interrupt" fn page_fault_handler(
     use x86_64::registers::control::Cr2;
     use x86_64::structures::idt::PageFaultErrorCode;
     println!("EXCEPTION: PAGE FAULT");
+    if crate::panic::unwind::is_kernel_ip(stack_frame.instruction_pointer.as_u64() as usize) {
+        unsafe {
+            let rbp: *const u64;
+            core::arch::asm!("mov {rbp}, rbp", rbp = out(reg) rbp);
+            crate::panic::unwind::unwind_by_rbp(rbp);
+        }
+    }
     println!("Accessed address: {:?}", Cr2::read());
     print!("Error code: ");
     if !error_code.contains(PageFaultErrorCode::PROTECTION_VIOLATION) {
