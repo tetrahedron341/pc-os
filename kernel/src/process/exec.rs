@@ -73,7 +73,7 @@ where
         let code = seg.data;
         let start = seg.va;
 
-        crate::serial_println!("LOAD@{start:X?} LEN:{}", code.len());
+        log::info!("LOAD@{start:X?} LEN:{}", code.len());
 
         for page_start in
             (start.align_down(4096u64)..(start + code.len()).align_up(4096u64)).step_by(4096)
@@ -84,7 +84,7 @@ where
             let target_offset = start.as_u64().saturating_sub(page_start.as_u64()) as usize;
             let target_len = (code.len() - code_offset).min(4096);
 
-            crate::serial_println!(
+            log::trace!(
                 "ps: {:X}  co: {code_offset}  to: {target_offset}  tl: {target_len}",
                 page_start.as_u64()
             );

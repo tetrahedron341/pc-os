@@ -1,22 +1,34 @@
+use core::sync::atomic::{AtomicBool, Ordering};
+
+use conquer_once::spin::OnceCell;
 use log::{Log, Level, LevelFilter};
 use crate::{println, serial_println};
 use crossbeam_queue::{ArrayQueue, PushError};
 use alloc::string::String;
-use alloc::boxed::Box;
+
+static LOGGER: OnceCell<Logger> = OnceCell::uninit();
 
 /// Initialize the `log` crate backend.
 /// 
 /// Must be called **exactly once** after allocation is set up.
 pub fn init(serial_min_level: LevelFilter, console_min_level: LevelFilter, capacity: usize) {
-    let logger = Box::new(Logger {
+    let logger = LOGGER.get_or_init(|| Logger {
         serial_min_level,
         console_min_level,
+
+        auto_flush: AtomicBool::new(true),
 
         log_queue: ArrayQueue::new(capacity)
     });
 
-    log::set_logger(Box::leak(logger)).expect("`crate::log::init()` called more than once");
+    log::set_logger(logger).expect("`crate::log::init()` called more than once");
     log::set_max_level(LevelFilter::Info);
+}
+
+/// Sets whether or not to block and write log messages to console as soon as they are logged.
+pub fn set_auto_flush(auto_flush: bool) {
+    let logger = LOGGER.get().unwrap();
+    logger.auto_flush.store(auto_flush, Ordering::Release);
 }
 
 /// Acts as a backend for the `log` crate. Sends logs to the VGA console and/or to the serial interface.
@@ -30,13 +42,15 @@ struct Logger {
     serial_min_level: LevelFilter,
     console_min_level: LevelFilter,
 
+    auto_flush: AtomicBool,
+
     log_queue: ArrayQueue<(String, Level)>,
 }
 
 impl Log for Logger {
     fn enabled(&self, metadata: &log::Metadata) -> bool {
-        metadata.level() <= self.serial_min_level ||
-        metadata.level() <= self.console_min_level
+        metadata.level() >= self.serial_min_level ||
+        metadata.level() >= self.console_min_level
     }
     fn log(&self, record: &log::Record) {
         if self.enabled(record.metadata()) {
@@ -45,6 +59,10 @@ impl Log for Logger {
                 self.flush();
                 self.log_queue.push(record).unwrap();
             }
+        }
+
+        if self.auto_flush.load(Ordering::Acquire) {
+            self.flush();
         }
     }
     fn flush(&self) {

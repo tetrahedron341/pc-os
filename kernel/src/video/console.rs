@@ -119,8 +119,8 @@ pub fn _print(args: core::fmt::Arguments) {
             use core::fmt::Write;
             console.write_fmt(args).unwrap();
         } else {
-            crate::serial_println!("ERROR: Console not available, using serial as backup");
-            crate::serial::_print(args);
+            log::warn!("Tried to print, console not available");
+            log::warn!("{}", args);
         }
     });
 }
