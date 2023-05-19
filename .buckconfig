@@ -3,6 +3,7 @@ root = .
 prelude = buck/prelude
 toolchains = toolchains
 none = none
+kernel_uapi = kernel-uapi
 
 [repository_aliases]
 config = prelude

@@ -1,0 +1,25 @@
+load("@prelude//rust:cargo_buildscript.bzl", "buildscript_run")
+load("@prelude//rust:cargo_package.bzl", "cargo")
+
+alias(
+    name = "cfg-if",
+    actual = ":cfg-if-1.0.0",
+    visibility = ["PUBLIC"],
+)
+
+http_archive(
+    name = "cfg-if-1.0.0.crate",
+    sha256 = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd",
+    strip_prefix = "cfg-if-1.0.0",
+    urls = ["https://crates.io/api/v1/crates/cfg-if/1.0.0/download"],
+    visibility = [],
+)
+
+cargo.rust_library(
+    name = "cfg-if-1.0.0",
+    srcs = [":cfg-if-1.0.0.crate"],
+    crate = "cfg_if",
+    crate_root = "cfg-if-1.0.0.crate/src/lib.rs",
+    edition = "2018",
+    visibility = [],
+)

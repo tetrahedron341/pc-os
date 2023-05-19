@@ -1,0 +1,9 @@
+rust_library(
+    name = "kernel_uapi",
+    srcs = glob(["src/**"]),
+    deps = [
+        "//third-party:cfg-if"
+    ],
+    visibility = ["PUBLIC"],
+)
+

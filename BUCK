@@ -9,5 +9,9 @@ genrule(
 rust_binary(
     name = "hello_rust",
     srcs = ["hello.rs"],
-    crate_root = "hello.rs"
+    crate_root = "hello.rs",
+    edition = "2021",
+    deps = [
+        "kernel_uapi//:kernel_uapi"
+    ]
 )
