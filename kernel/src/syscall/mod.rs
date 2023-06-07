@@ -14,6 +14,7 @@ pub extern "C" fn syscall_handler(op: &mut Syscall) -> SyscallResult {
             let c = char::from(*c);
             if ('\x20'..='\x7E').contains(&c) || c == '\n' {
                 crate::print!("{}", c);
+                crate::serial_print!("{}", c);
                 Ok(SyscallResultInner { put_char: 0 }).into()
             } else {
                 Err(SyscallErrorCode::InvalidArgumentError).into()
