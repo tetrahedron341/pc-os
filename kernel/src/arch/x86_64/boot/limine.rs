@@ -238,27 +238,19 @@ fn enumerate_pci_devices(pci: &acpi::PciConfigRegions) {
         let class = cfg.class;
         let subclass = cfg.subclass;
 
-        let kind = match (class, subclass) {
-            (0, _) => "Unspecified",
-            (1, _) => "Mass Storage Controller",
-            (2, 1) => "Ethernet Controller",
-            (2, _) => "Network Controller",
-            (3, _) => "Display Controller",
-            (4, _) => "Multimedia Controller",
-            (5, _) => "Memory Controller",
-            (6, 4) => "PCI-to-PCI Bridge",
-            (6, _) => "Bridge",
-            (7, _) => "Simple Communication Controller",
-            (8, _) => "Base System Peripheral",
-            (9, _) => "Input Device Controller",
-            (10, _) => "Docking Station",
-            (11, _) => "Processor",
-            (12, _) => "Serial Bus Controller",
-            (13, _) => "Wireless Controller",
-            _ => "Unknown Device",
-        };
+        let kind = crate::pci::device_kind(class, subclass).unwrap_or("Unknown");
         log::debug!("{kind}");
-        log::debug!("{cfg:#X?}");
+        match cfg.header_type & 0x7f {
+            0 => {
+                let extcfg = unsafe { core::mem::transmute::<_, &crate::pci::HeaderType0>(cfg) };
+                log::debug!("{extcfg:#X?}");
+            }
+            1 => {
+                let extcfg = unsafe { core::mem::transmute::<_, &crate::pci::HeaderType1>(cfg) };
+                log::debug!("{extcfg:#X?}");
+            }
+            _ => log::debug!("{cfg:#X?}"),
+        }
             
         if class == 0x6 && subclass == 0x4 {
             // Pci-to-Pci bridge

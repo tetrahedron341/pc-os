@@ -65,3 +65,27 @@ pub struct HeaderType1 {
     pub interrupt_pin: u8,
     pub bridge_control: u16,
 }
+
+/// Creates a generic label for a given class of PCI device
+pub fn device_kind(class: u8, subclass: u8) -> Option<&'static str> {
+    let kind = match (class, subclass) {
+        (0, _) => "Unspecified",
+        (1, _) => "Mass Storage Controller",
+        (2, 1) => "Ethernet Controller",
+        (2, _) => "Network Controller",
+        (3, _) => "Display Controller",
+        (4, _) => "Multimedia Controller",
+        (5, _) => "Memory Controller",
+        (6, 4) => "PCI-to-PCI Bridge",
+        (6, _) => "Bridge",
+        (7, _) => "Simple Communication Controller",
+        (8, _) => "Base System Peripheral",
+        (9, _) => "Input Device Controller",
+        (10, _) => "Docking Station",
+        (11, _) => "Processor",
+        (12, _) => "Serial Bus Controller",
+        (13, _) => "Wireless Controller",
+        _ => return None,
+    };
+    Some(kind)
+}
