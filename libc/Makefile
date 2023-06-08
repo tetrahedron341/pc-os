@@ -20,13 +20,13 @@ BINARIES=libc.a
 
 all: $(BINARIES)
 
-libc.a: $(OBJS) $(LIBKERNEL_UAPI) $(DEPS)
+libc.a: ../kernel-uapi/include/uapi.h $(OBJS) $(LIBKERNEL_UAPI) $(DEPS)
 	mkdir libkernel_objs; cd libkernel_objs; $(AR) x ../$(LIBKERNEL_UAPI)
 	$(AR) rcs $@ $(OBJS) libkernel_objs/*
 	rm -r libkernel_objs 
 
 ../kernel-uapi/include/uapi.h: 
-	cd ../kernel-uapi; cbindgen -i include/uapi.h
+	cd ../kernel-uapi; cbindgen -o include/uapi.h
 
 $(LIBKERNEL_UAPI):
 	cargo rustc --target ../x86_64-pc_os.json --release -p kernel-uapi -Zbuild-std=core --crate-type staticlib --features panic_handler
