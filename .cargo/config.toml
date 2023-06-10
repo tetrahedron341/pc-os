@@ -12,11 +12,11 @@ rustflags = [
 ]
 
 [alias]
-kbuild = "build --bin main --target x86_64-pc_os.json -Zbuild-std=core,alloc -Zbuild-std-features=compiler-builtins-mem"
-kclippy = "clippy --bin main --target x86_64-pc_os.json -Zbuild-std=core,alloc -Zbuild-std-features=compiler-builtins-mem"
-kimage = "run --release --bin main --target x86_64-pc_os.json -Zbuild-std=core,alloc -Zbuild-std-features=compiler-builtins-mem -- --no-boot"
-krun = "run --bin main --target x86_64-pc_os.json -Zbuild-std=core,alloc -Zbuild-std-features=compiler-builtins-mem"
-ktest = "test --package kernel --target x86_64-pc_os.json -Zbuild-std=core,alloc -Zbuild-std-features=compiler-builtins-mem"
+kbuild = "build --bin main --target x86_64-unknown-none -Zbuild-std=core,alloc -Zbuild-std-features=compiler-builtins-mem"
+kclippy = "clippy --bin main --target x86_64-unknown-none -Zbuild-std=core,alloc -Zbuild-std-features=compiler-builtins-mem"
+kimage = "run --release --bin main --target x86_64-unknown-none -Zbuild-std=core,alloc -Zbuild-std-features=compiler-builtins-mem -- --no-boot"
+krun = "run --bin main --target x86_64-unknown-none -Zbuild-std=core,alloc -Zbuild-std-features=compiler-builtins-mem"
+ktest = "test --package kernel --target x86_64-unknown-none -Zbuild-std=core,alloc -Zbuild-std-features=compiler-builtins-mem"
 
 [env]
 OVMF_FD = { value = "/usr/share/ovmf/OVMF.fd" }
