@@ -1,3 +1,5 @@
+use core::ptr::NonNull;
+
 /// Common fields of all configurations spaces
 #[repr(C)]
 #[derive(Default, Debug, Clone, Copy)]
@@ -66,6 +68,14 @@ pub struct HeaderType1 {
     pub bridge_control: u16,
 }
 
+/// Pointer to the configuration space of a PCI(e) device
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum GenericPciHeaderPtr {
+    Type0(NonNull<HeaderType0>),
+    Type1(NonNull<HeaderType1>),
+    Other(NonNull<BaseHeader>),
+}
+
 /// Creates a generic label for a given class of PCI device
 pub fn device_kind(class: u8, subclass: u8) -> Option<&'static str> {
     let kind = match (class, subclass) {
@@ -88,4 +98,12 @@ pub fn device_kind(class: u8, subclass: u8) -> Option<&'static str> {
         _ => return None,
     };
     Some(kind)
+}
+
+/// Interface for a system capable of finding the configuration space of a given PCI(e) device.
+pub trait PciHandler {
+    type Error: core::fmt::Display;
+
+    /// Finds a memory-mapped pointer to the configuration space of the given device.
+    fn get_config_space(segment_group: u16, bus: u8, device: u8, function: u8) -> Result<GenericPciHeaderPtr, Self::Error>;
 }
