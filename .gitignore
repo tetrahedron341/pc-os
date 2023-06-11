@@ -1,3 +1,4 @@
 /target
 disk.img
 qemu.log
+.env

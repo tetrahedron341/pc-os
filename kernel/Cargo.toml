@@ -3,7 +3,6 @@ name = "kernel"
 version = "0.1.0"
 authors = ["tetra <bengdahl341@gmail.com>"]
 edition = "2021"
-build = "build.rs"
 
 [package.metadata.bootloader]
 physical-memory-offset = 0x0000_F000_0000_0000 # 0xFFFF_F000_0000_0000
@@ -44,9 +43,6 @@ bitvec = { version = "1.0.1", default-features = false, features = ["alloc"] }
 rustc-demangle = { version = "0.1.23", default-features = false }
 [target.'cfg(target_arch = "x86_64")'.dependencies]
 x86_64 = "0.14.6"
-
-[build-dependencies]
-kernel-uapi = { path = "../kernel-uapi", default-features = false }
 
 [features]
 default = ["limine_bootloader"]

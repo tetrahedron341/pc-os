@@ -82,43 +82,54 @@ where
             let code_offset = page_start.as_u64().saturating_sub(start.as_u64()) as usize;
             // If the segment is non-page aligned, this is how many zeroes we need before the segment.
             let target_offset = start.as_u64().saturating_sub(page_start.as_u64()) as usize;
-            let target_len = (code.len() - code_offset).min(4096);
+            let target_len = (code.len() - code_offset).min(4096 - target_offset);
 
             log::trace!(
                 "ps: {:X}  co: {code_offset}  to: {target_offset}  tl: {target_len}",
                 page_start.as_u64()
             );
 
-            let load_frame = crate::arch::memory::allocate_frame().expect("Out of memory");
-            // Map this frame into the process' address space
-            unsafe {
-                use x86_64::structures::paging::{Mapper, PageTableFlags};
-                let mut fa = crate::arch::memory::FRAME_ALLOCATOR.get().unwrap().lock();
-                space
-                    .page_table()
-                    .map_to(
-                        to_page,
-                        load_frame,
-                        PageTableFlags::PRESENT
-                            | PageTableFlags::USER_ACCESSIBLE
-                            | PageTableFlags::WRITABLE,
-                        &mut *fa,
-                    )
-                    .unwrap()
-                    .ignore();
-            }
-
-            let copy_page = Page::from_start_address(crate::arch::memory::phys_to_virt(
-                load_frame.start_address(),
-            ))
-            .unwrap();
-            let target_chunk = unsafe {
-                core::slice::from_raw_parts_mut(copy_page.start_address().as_mut_ptr(), 4096)
+            use x86_64::structures::paging::{
+                mapper::{MappedFrame, TranslateResult},
+                Mapper, PageTableFlags, Translate,
             };
-            target_chunk[..target_offset].fill(0);
-            target_chunk[target_offset..target_offset + target_len]
+            let flags: PageTableFlags = PageTableFlags::PRESENT
+                | PageTableFlags::USER_ACCESSIBLE
+                | PageTableFlags::WRITABLE;
+            let to_page_slice = match space.page_table().translate(to_page.start_address()) {
+                TranslateResult::NotMapped => unsafe {
+                    let load_frame = crate::arch::memory::allocate_frame().expect("Out of memory");
+                    let mut fa = crate::arch::memory::FRAME_ALLOCATOR.get().unwrap().lock();
+                    space
+                        .page_table()
+                        .map_to(to_page, load_frame, flags, &mut *fa)
+                        .unwrap()
+                        .ignore();
+
+                    let to_page_slice = core::slice::from_raw_parts_mut(
+                        crate::arch::memory::phys_to_virt(load_frame.start_address()).as_u64()
+                            as *mut u8,
+                        load_frame.size() as usize,
+                    );
+                    to_page_slice.fill(0);
+                    to_page_slice
+                },
+                TranslateResult::Mapped {
+                    frame: MappedFrame::Size4KiB(frame),
+                    flags,
+                    ..
+                } if flags == flags => unsafe {
+                    core::slice::from_raw_parts_mut(
+                        crate::arch::memory::phys_to_virt(frame.start_address()).as_u64()
+                            as *mut u8,
+                        frame.size() as usize,
+                    )
+                },
+                err => panic!("{:?}", err),
+            };
+
+            to_page_slice[target_offset..target_offset + target_len]
                 .copy_from_slice(&code[code_offset..code_offset + target_len]);
-            target_chunk[target_offset + target_len..].fill(0);
         }
     }
 
