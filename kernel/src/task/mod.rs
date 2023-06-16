@@ -85,6 +85,7 @@ fn run_ready_tasks() {
     };
 
     while let Some((task_id, mut task, waker)) = pop_task() {
+        log::trace!("Running task {task_id:?}");
         let mut cx = Context::from_waker(&waker);
         match task.poll(&mut cx) {
             Poll::Ready(()) => {

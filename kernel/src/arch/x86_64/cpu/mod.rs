@@ -29,11 +29,13 @@ impl Cpu {
     }
 
     pub fn run_process(&mut self, proc: &mut Process, waker: core::task::Waker) {
+        log::trace!("Running process {}", proc.pid.as_u64());
         proc.space.load();
         let load = proc.context;
         proc.state = ProcessState::Running(waker);
-        self.process = Some(NonNull::from(proc));
+        self.process = Some(NonNull::from(&*proc));
         unsafe { Context::switch(&mut self.scheduler_ctx, load) }
+        log::trace!("Return from process {}", proc.pid.as_u64());
         self.scheduler_ctx = core::ptr::null_mut();
     }
 
