@@ -13,6 +13,7 @@ user_target_dir := target_dir / file_stem(user_target) / (if user_profile == "de
 check := "false"
 
 cargo_build := if check == "true" { "cargo clippy" } else { "cargo build" }
+cargo_build_test := if check == "true" { "cargo clippy" } else { "cargo test --no-run" }
 cargo_guest_flags := "-Zbuild-std=core,alloc -Zbuild-std-features=compiler-builtins-mem"
 
 default:
@@ -21,16 +22,28 @@ default:
 clean:
     cargo clean
 
-_guest_cargo_build package target profile: 
-    {{cargo_build}} --package {{package}} --target {{target}} --profile {{profile}} {{cargo_guest_flags}}
+_cargo_build package target profile: 
+    {{cargo_build}} \
+        --package {{package}} \
+        --target {{target}} \
+        --profile {{profile}} \
+        {{cargo_guest_flags}}
+
+_cargo_build_test package target test profile: 
+    {{cargo_build_test}} \
+        --package {{package}} \
+        --target {{target}} \
+        --test {{test}} \
+        --profile {{profile}} \
+        {{cargo_guest_flags}}
 
 kernel_path := kernel_target_dir / "main"
-kernel: (_guest_cargo_build "kernel" kernel_target kernel_profile)
+kernel: (_cargo_build "kernel" kernel_target kernel_profile)
 
 init_path := user_target_dir / "init"
-init: (_guest_cargo_build "init" user_target user_profile)
+init: (_cargo_build "init" user_target user_profile)
 
-initrd_includes := "initrd/hello.txt " + init_path
+initrd_includes := "initrd/hello.txt "
 initrd_path := target_dir / "initrd.tar"
 initrd_dir := target_dir / "initrd"
 initrd +files=initrd_includes: init
@@ -42,7 +55,7 @@ initrd +files=initrd_includes: init
 img_path := target_dir / "pc_os.img"
 img_build_dir := target_dir / "img"
 limine_prefix := env_var_or_default("LIMINE_PREFIX", "/usr/local")
-img: kernel initrd
+_make_img kernel initrd: 
     mkdir -p {{img_build_dir}}
     cp image/limine.cfg \
        {{limine_prefix}}/share/limine/BOOTX64.EFI \
@@ -50,11 +63,13 @@ img: kernel initrd
        {{limine_prefix}}/share/limine/limine-cd.bin \
        {{limine_prefix}}/share/limine/limine.sys \
        {{img_build_dir}}
-    cp {{kernel_path}} {{img_build_dir}}/kernel.elf
-    cp {{initrd_path}} {{img_build_dir}}/initrd
+    cp {{kernel}} {{img_build_dir}}/kernel.elf
+    cp {{initrd}} {{img_build_dir}}/initrd
     xorriso -as mkisofs -b limine-cd.bin -e limine-cd-efi.bin -o {{img_path}} {{img_build_dir}}
     {{limine_prefix}}/bin/limine-deploy {{img_path}}
     rm -r {{img_build_dir}}
+
+img: kernel initrd (_make_img kernel_path initrd_path)
 
 ovmf_path := env_var_or_default("OVMF_PATH", "/usr/share/ovmf/OVMF.fd")
 qemu := env_var_or_default("QEMU", "qemu-system-x86_64")
@@ -67,3 +82,15 @@ run disk_image *args: img
         -drive file={{img_path}},format=raw \
         -bios {{ovmf_path}} \
         {{qemu_run_args}} {{args}}
+
+gdb disk_image *args: (run disk_image args "-S")
+
+# Used by `cargo run`
+_kernel_runner kernel_path *args: initrd (_make_img (kernel_path) initrd_path)
+    @ if [ -z $DISK_IMAGE ]; then echo "Set environment variable DISK_IMAGE"; exit -1; else true; fi
+    {{qemu}} \
+    -drive file={{img_path}},format=raw \
+    -drive file=$DISK_IMAGE,format=raw \
+    -bios {{ovmf_path}} \
+    {{qemu_test_args}} {{args}} \
+    ; if [ $? -eq 33 ]; then true; else exit $?; fi
