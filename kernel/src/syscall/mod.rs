@@ -6,16 +6,16 @@ use log::info;
 pub extern "C" fn syscall_handler(op: &mut Syscall) -> SyscallResult {
     log::trace!("Syscall: {:?}", op);
     match op {
-        Syscall::ping { .. } => {
+        Syscall::ping {} => {
             info!("Ping!");
-            Ok(SyscallResultInner { ping: 0 }).into()
+            Ok(SyscallResultInner { ping: () }).into()
         }
         Syscall::put_char { c } => {
             let c = char::from(*c);
             if ('\x20'..='\x7E').contains(&c) || c == '\n' {
                 crate::print!("{}", c);
                 crate::serial_print!("{}", c);
-                Ok(SyscallResultInner { put_char: 0 }).into()
+                Ok(SyscallResultInner { put_char: () }).into()
             } else {
                 Err(SyscallErrorCode::InvalidArgumentError).into()
             }
@@ -47,7 +47,7 @@ pub extern "C" fn syscall_handler(op: &mut Syscall) -> SyscallResult {
                 cpu.return_from_process(p);
             });
 
-            Ok(SyscallResultInner { sleep_ms: 0 }).into()
+            Ok(SyscallResultInner { sleep_ms: () }).into()
         }
         Syscall::exit { .. } => x86_64::instructions::interrupts::without_interrupts(|| {
             let cpu = crate::arch::cpu::this_cpu();

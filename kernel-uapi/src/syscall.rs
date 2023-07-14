@@ -20,7 +20,7 @@ cfg_if::cfg_if! {
 macro_rules! syscall_define {
     ($(
         $(#[doc = $docs:expr])*
-        pub extern "C" fn $name:ident ($($(#[doc = $field_docs:expr])* $arg:ident : $t:ty),+) -> $return:ty;
+        pub extern "C" fn $name:ident ($($(#[doc = $field_docs:expr])* $arg:ident : $t:ty),*) -> $return:ty;
     )*) => {
         #[repr(C)]
         #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -30,7 +30,7 @@ macro_rules! syscall_define {
             $name {$(
                 $(#[doc = $field_docs])*
                 $arg: $t
-            )+,}
+            ),*}
         ),*}
 
         #[repr(C)]
@@ -65,7 +65,7 @@ macro_rules! syscall_define {
         $(
             $(#[doc = $docs])*
             #[no_mangle]
-            pub extern "C" fn $name($($(#[doc = $field_docs])* $arg: $t),*, out: Option<&mut core::mem::MaybeUninit<$return>>) -> SyscallErrorCode {
+            pub extern "C" fn $name($($(#[doc = $field_docs])* $arg: $t,)* out: Option<&mut core::mem::MaybeUninit<$return>>) -> SyscallErrorCode {
                 match raw_syscall(Syscall::$name{$($arg),*}) {
                     SyscallResult::Ok(v) => unsafe {out.map(|out| out.write(v.$name)); SyscallErrorCode::Ok},
                     SyscallResult::Err(e) => e
@@ -78,13 +78,13 @@ macro_rules! syscall_define {
 
 syscall_define! {
     /// Print out "Ping!" to the console screen
-    pub extern "C" fn ping(_unused: u8) -> u8;
-    pub extern "C" fn put_char(c: u8) -> u8;
-    pub extern "C" fn get_kbd_code(_unused: u8) -> u8;
-    pub extern "C" fn sleep_ms(duration_ms: u32) -> u8;
+    pub extern "C" fn ping() -> ();
+    pub extern "C" fn put_char(c: u8) -> ();
+    pub extern "C" fn get_kbd_code() -> u8;
+    pub extern "C" fn sleep_ms(duration_ms: u32) -> ();
 
     /// Exits the current process
-    pub extern "C" fn exit(code: i8) -> u8;
+    pub extern "C" fn exit(code: i8) -> ();
 }
 
 #[repr(u32)]

@@ -7,7 +7,7 @@ macro_rules! print {
 
 pub fn main() {
     for _ in 0..3 {
-        kernel_uapi::syscall::ping(0, None);
+        kernel_uapi::syscall::ping(None);
     }
 
     print!("Hello from userland rust!\n");
