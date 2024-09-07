@@ -45,6 +45,9 @@ rustc-demangle = { version = "0.1.23", default-features = false }
 [target.'cfg(target_arch = "x86_64")'.dependencies]
 x86_64 = "0.14.6"
 
+[build-dependencies]
+kernel-uapi = { path = "../kernel-uapi", default-features = false }
+
 [features]
 default = ["limine_bootloader"]
 phil_opp_bootloader = ["bootloader"]
