@@ -185,7 +185,7 @@ fn get_modules() -> Vec<BootModule> {
 
 fn enumerate_acpi_tables() {
     #[derive(Clone, Copy)]
-    struct AcpiHandler {}
+    struct AcpiHandler;
 
     impl acpi::AcpiHandler for AcpiHandler {
         unsafe fn map_physical_region<T>(
@@ -206,7 +206,7 @@ fn enumerate_acpi_tables() {
     let phys_offset = get_phys_mem_offset().as_u64() as usize;
     let tables = unsafe {
         acpi::AcpiTables::from_rsdp(
-            AcpiHandler {},
+            AcpiHandler,
             rsdp_response.address.as_ptr().unwrap() as usize - phys_offset,
         )
     }
@@ -215,6 +215,16 @@ fn enumerate_acpi_tables() {
     let pci = acpi::PciConfigRegions::new(&tables).unwrap();
     log::trace!("{pci:#X?}");
     enumerate_pci_devices(&pci);
+
+    let fadt = unsafe {tables.get_sdt::<acpi::fadt::Fadt>(acpi::sdt::Signature::FADT)}.unwrap().unwrap();
+    // check if acpi is already enabled
+    let enabled = fadt.smi_cmd_port == 0 || (fadt.acpi_disable == 0 && fadt.acpi_enable == 0);
+    if !enabled {
+        log::debug!("Manually enabling ACPI");
+        unsafe {x86_64::instructions::port::Port::new(fadt.smi_cmd_port as u16).write(fadt.acpi_enable);}
+    } else {
+        log::debug!("ACPI enabled by BIOS");
+    }
 }
 
 fn enumerate_pci_devices(pci: &acpi::PciConfigRegions) {
