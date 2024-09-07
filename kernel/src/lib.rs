@@ -5,7 +5,6 @@
 #![feature(alloc_error_handler)]
 #![feature(const_mut_refs)]
 #![feature(naked_functions)]
-#![feature(asm_sym)]
 #![feature(maybe_uninit_uninit_array)]
 #![feature(maybe_uninit_slice)]
 #![feature(const_maybe_uninit_uninit_array)]
