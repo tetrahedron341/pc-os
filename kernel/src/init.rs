@@ -1,3 +1,5 @@
+use bootloader::boot_info;
+
 use crate::gdt;
 use crate::interrupts;
 use crate::memory;
@@ -28,6 +30,7 @@ pub fn init(boot_info: &'static mut bootloader::BootInfo) -> InitServices {
         idt_service,
         gdt_service,
         paging_service,
+        modules: &*boot_info.modules,
     }
 }
 
@@ -35,4 +38,5 @@ pub struct InitServices {
     pub idt_service: interrupts::IdtService,
     pub gdt_service: gdt::GdtService,
     pub paging_service: memory::PagingService,
+    pub modules: &'static [boot_info::Module],
 }

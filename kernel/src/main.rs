@@ -46,6 +46,7 @@ fn main(boot_info: &'static mut BootInfo) -> ! {
         idt_service: _idt_service,
         gdt_service: _gdt_service,
         paging_service,
+        modules,
     } = init::init(boot_info);
 
     log::init(SERIAL_LOG_MIN, CONSOLE_LOG_MIN, 128);
@@ -104,6 +105,8 @@ fn main(boot_info: &'static mut BootInfo) -> ! {
         };
         println!("hello.txt contents:\n{}", s)
     }
+
+    serial_println!("Loaded modules: {:#?}", modules);
 
     syscall::init();
 

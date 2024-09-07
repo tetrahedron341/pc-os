@@ -11,8 +11,7 @@ minimum-framebuffer-height = 600
 modules = [{ name = "initrd", path = "../initrd/initrd.tar" }]
 
 [dependencies]
-# bootloader = { git = "https://github.com/bengdahl/bootloader" }
-bootloader = { path = "../../bootloader" }
+bootloader = { git = "https://github.com/bengdahl/bootloader" }
 volatile = "0.2.6"
 lazy_static = { version = "*", features = ["spin_no_std"] }
 spin = "0.9"
