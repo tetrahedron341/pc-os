@@ -1,23 +1,14 @@
 #![no_std]
 #![no_main]
+#![feature(custom_test_frameworks)]
+#![test_runner(kernel::test::test_runner)]
+#![reexport_test_harness_main = "test_main"]
 
-use core::panic::PanicInfo;
-use kernel::{serial_print, serial_println, test::exit_qemu, test::QemuExitCode};
+kernel::kernel_main!(kernel::test::TestMainBuilder::new(test_main)
+    .should_panic()
+    .build());
 
-#[no_mangle] // don't mangle the name of this function
-pub extern "C" fn _start() -> ! {
-    should_panic();
-    serial_println!("[did not panic]");
-    exit_qemu(QemuExitCode::Failure);
-}
-
-#[panic_handler]
-fn panic(_info: &PanicInfo) -> ! {
-    serial_println!("[ok]");
-    exit_qemu(QemuExitCode::Success);
-}
-
+#[test_case]
 fn should_panic() {
-    serial_print!("{}::should_panic...\t", module_path!());
     assert_eq!(1, 2)
 }

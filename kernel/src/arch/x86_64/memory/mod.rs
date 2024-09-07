@@ -35,6 +35,17 @@ pub(super) unsafe fn init(phys_mem_offset: VirtAddr, memory_map: &'static [Memor
         "[arch::x86_64::memory::init] Free memory: {} KB",
         falloc.free_pages() * 4
     );
+    crate::serial_println!(
+        "[arch::x86_64::memory::init] LV4 PT @ 0x{:016x?}",
+        x86_64::registers::control::Cr3::read()
+            .0
+            .start_address()
+            .as_u64()
+    );
+    crate::serial_println!(
+        "[arch::x86_64::memory::init] Physical memory @ 0x{:016x?}",
+        phys_mem_offset.as_u64()
+    );
     FRAME_ALLOCATOR.init_once(|| Mutex::new(falloc));
 }
 

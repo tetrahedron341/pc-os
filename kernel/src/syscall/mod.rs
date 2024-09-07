@@ -8,13 +8,13 @@ use core::convert::TryFrom;
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum SyscallOpCode {
     /// Print out "Ping!" to the console screen
-    Ping = SYS_PING as u32,
-    PutChar = SYS_PUTCHAR as u32,
-    GetKbdCode = SYS_GETCHAR as u32,
-    SleepMs = SYS_SLEEP_MS as u32,
+    Ping = SYS_PING,
+    PutChar = SYS_PUTCHAR,
+    GetKbdCode = SYS_GETCHAR,
+    SleepMs = SYS_SLEEP_MS,
 
     /// Exits the current process
-    Exit = SYS_EXIT as u32,
+    Exit = SYS_EXIT,
 }
 
 impl TryFrom<u32> for SyscallOpCode {

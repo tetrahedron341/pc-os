@@ -6,16 +6,7 @@
 
 extern crate alloc;
 
-use bootloader::{entry_point, BootInfo};
-
-entry_point!(main);
-
-fn main(boot_info: &'static mut BootInfo) -> ! {
-    kernel::init::init(boot_info);
-    test_main();
-
-    loop {}
-}
+kernel::kernel_main!(kernel::test::TestMainBuilder::new(test_main).build());
 
 #[test_case]
 fn boxed_values() {

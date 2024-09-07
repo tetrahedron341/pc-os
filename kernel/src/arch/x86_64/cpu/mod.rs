@@ -1,4 +1,4 @@
-mod apic;
+pub mod apic;
 mod context;
 mod registers;
 

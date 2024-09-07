@@ -6,24 +6,7 @@
 
 extern crate alloc;
 
-use bootloader::{entry_point, BootInfo};
-
-entry_point!(main);
-
-fn main(boot_info: &'static mut BootInfo) -> ! {
-    use log::LevelFilter;
-
-    kernel::init::init(boot_info);
-
-    kernel::log::init(LevelFilter::Off, LevelFilter::Info, 64);
-
-    // Clear the screen
-    kernel::print!("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");
-
-    test_main();
-
-    loop {}
-}
+kernel::kernel_main!(kernel::test::TestMainBuilder::new(test_main).build());
 
 // #[test_case]
 // fn logging() {
