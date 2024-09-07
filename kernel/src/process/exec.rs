@@ -4,7 +4,7 @@ use crate::{
         cpu::{Context, Registers},
         memory::{phys_to_virt, Page, VirtAddr},
     },
-    process::ProcessState,
+    process::{ProcessState, ProcessId},
 };
 use alloc::vec;
 use core::{arch::asm, convert::TryInto};
@@ -218,6 +218,7 @@ where
     }
 
     Process {
+        pid: ProcessId::new_unique(),
         kernel_stack,
         state: ProcessState::Runnable,
         space,
