@@ -1,5 +1,5 @@
 OBJS = syscall.o
-CFLAGS = -Iinclude -nostdlib -nodefaultlibs -c
+CFLAGS = -Iinclude -I../kernel/include -nostdlib -nodefaultlibs -c
 
 .PHONY: all
 
