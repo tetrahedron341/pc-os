@@ -1,6 +1,6 @@
 use super::{SyscallOp, SyscallOpCode, SyscallStatus};
 
-pub(super) fn syscall_dispatch(op: u64, ptr: *mut u8) -> SyscallStatus {
+pub fn syscall_dispatch(op: u64, ptr: *mut u8) -> SyscallStatus {
     // Safety: The only way we can be in a syscall is if we are returning from user mode.
     // The only way we could have been in user mode is if `Executor.run()` was called.
     // If `Executor.run()` was called, then that call will never return so it's fine to take back the lock like this.
@@ -19,7 +19,7 @@ pub(super) fn syscall_dispatch(op: u64, ptr: *mut u8) -> SyscallStatus {
             SyscallOpCode::PutChar => {
                 let c = char::from(op.arg_u8);
                 if ('\x20'..='\x7E').contains(&c) || c == '\n' {
-                    crate::print!("{}",c);
+                    crate::print!("{}", c);
                     SyscallStatus::Ok
                 } else {
                     SyscallStatus::Error
@@ -34,7 +34,8 @@ pub(super) fn syscall_dispatch(op: u64, ptr: *mut u8) -> SyscallStatus {
                 let mut executor = crate::process::EXECUTOR.lock();
                 let executor = executor.as_mut().unwrap();
                 executor.exit_current_process();
-                executor.run()
+                // executor.run()
+                crate::arch::loop_forever()
             }
         }
     } else {

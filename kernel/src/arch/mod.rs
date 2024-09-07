@@ -1,3 +1,6 @@
+//! Contains architecture-specific code.
+//! Ideally, no code outside this crate should be architecture-dependent.
+
 cfg_if::cfg_if! {
     if #[cfg(target_arch = "x86_64")] {
         mod x86_64;

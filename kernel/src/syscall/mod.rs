@@ -1,11 +1,8 @@
 mod dispatch;
-mod syscall_impl;
-
-pub use syscall_impl::init;
-
-use core::convert::TryFrom;
+pub use dispatch::syscall_dispatch;
 
 use crate::uapi::*;
+use core::convert::TryFrom;
 
 #[repr(u8)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
