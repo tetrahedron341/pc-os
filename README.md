@@ -1,6 +1,4 @@
-# a kernel without a name
-
-im very bad at naming things
+# im very bad at naming things
 
 # prerequisites
 
