@@ -135,7 +135,7 @@ fn get_modules() -> Vec<BootModule> {
 /// Call only once.
 unsafe fn get_framebuffer() -> Option<impl Framebuffer + Send + Sync + 'static> {
     FRAMEBUFFER_REQUEST.get_response().get().and_then(|resp| {
-        resp.framebuffers().map(|fbs| unsafe {
+        resp.framebuffers().map(|fbs| {
             let fb = &fbs[0] as *const _;
             Box::new(FramebufferImpl(
                 &mut *(fb as *mut limine::LimineFramebuffer),

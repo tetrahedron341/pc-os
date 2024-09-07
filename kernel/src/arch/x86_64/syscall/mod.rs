@@ -1,5 +1,7 @@
 use core::arch::asm;
 
+use crate::syscall::{SyscallOp, SyscallStatus};
+
 static mut STACK: [u8; 32 * 1024] = [0; 32 * 1024];
 static mut SYSCALL_RSP: *const u8 = unsafe { &STACK[STACK.len() - 8] as *const u8 };
 static mut RETURN_RSP: *const u8 = core::ptr::null();
@@ -47,22 +49,36 @@ pub fn init() {
 
 #[no_mangle]
 extern "C" fn syscall_handler() {
-    let (op, ptr) = unsafe {
-        let r14: u64;
-        let r15: u64;
+    let (op, args) = unsafe {
+        let op: u64;
+        let [arg0, arg1, arg2, arg3]: [u64; 4];
         asm!(
-            "mov {r14}, r14",
-            "mov {r15}, r15",
-            r14 = out(reg) r14,
-            r15 = out(reg) r15,
+            "mov {op}, rax",
+            "mov {arg0}, rdi",
+            "mov {arg1}, rsi",
+            "mov {arg2}, rdx",
+            "mov {arg3}, r8",
+            op = out(reg) op,
+            arg0 = out(reg) arg0,
+            arg1 = out(reg) arg1,
+            arg2 = out(reg) arg2,
+            arg3 = out(reg) arg3,
         );
-        (r14, r15 as usize as *mut u8)
+        (op, [arg0, arg1, arg2, arg3])
     };
 
-    let r: u64 = crate::syscall::syscall_dispatch(op, ptr).into();
+    let r: u64 = {
+        let op = u32::try_from(op).ok();
+        if let Some(op) = op.and_then(|op| SyscallOp::new(op as u32, args)) {
+            crate::syscall::syscall_dispatch(op)
+        } else {
+            SyscallStatus::InvalidOp
+        }
+    }
+    .into();
     unsafe {
         asm!(
-            "mov r14, {r}",
+            "mov rax, {r}",
             r = in(reg) r
         )
     }
