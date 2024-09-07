@@ -1,4 +1,4 @@
-#[cfg_attr(feature = "phil_opp_bootloader", path = "boot/bootloader.rs")]
+#[cfg_attr(feature = "phil_opp_bootloader", path = "boot/phil_opp_bootloader.rs")]
 mod boot;
 pub mod context;
 mod gdt;
