@@ -9,6 +9,8 @@ build = "build.rs"
 map-page-table-recursively = true
 minimum-framebuffer-height = 600
 modules = [{ name = "initrd", path = "../initrd/initrd.tar" }]
+map-physical-memory = true
+physical-memory-offset = 0x0000_4000_0000_0000
 
 [dependencies]
 bootloader = { git = "https://github.com/bengdahl/bootloader" }
