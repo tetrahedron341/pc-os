@@ -1,7 +1,14 @@
 pub static KERNEL_START: conquer_once::spin::OnceCell<usize> = conquer_once::spin::OnceCell::uninit();
+pub static KERNEL_LEN: conquer_once::spin::OnceCell<usize> = conquer_once::spin::OnceCell::uninit();
 pub static KERNEL_ELF: conquer_once::spin::OnceCell<&'static goblin::elf::header::header64::Header> = conquer_once::spin::OnceCell::uninit();
 
-pub fn unwind_by_rbp() {
+pub fn is_kernel_ip(ip: usize) -> bool {
+    let kstart = *KERNEL_START.get().unwrap();
+    let klen = *KERNEL_LEN.get().unwrap();
+    (kstart..kstart+klen).contains(&ip)
+}
+
+pub unsafe fn unwind_by_rbp(rbp: *const u64) {
     unsafe fn inner(depth: usize, rbp: *const u64, syms: Option<&SymbolFinder>) {
         if rbp.is_null() {return}
         let saved_rbp = *rbp;
@@ -18,9 +25,7 @@ pub fn unwind_by_rbp() {
     }
 
     crate::serial_println!("START OF BACKTRACE");
-    let rbp: *const u64;
     unsafe {
-        core::arch::asm!("mov {rbp}, rbp", rbp = out(reg) rbp);
         let syms = SymbolFinder::new();
         inner(0, rbp, syms.as_ref());
     }

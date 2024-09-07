@@ -38,8 +38,12 @@ const CONSOLE_LOG_MIN: log::LevelFilter = log::LevelFilter::Warn;
 fn _start() -> ! {
     x86_64::instructions::interrupts::disable();
     enable_simd();
-    crate::panic::unwind::KERNEL_START.init_once(|| {
+    let kernel_start = crate::panic::unwind::KERNEL_START.get_or_init(|| {
         KERNEL_ADDRESS_REQUEST.get_response().get().unwrap().virtual_base as usize
+    });
+    crate::serial_println!("KERNEL_START: {kernel_start:#X}");
+    crate::panic::unwind::KERNEL_LEN.init_once(|| {
+        KERNEL_FILE_REQUEST.get_response().get().unwrap().kernel_file.get().unwrap().length as usize
     });
 
     crate::panic::unwind::KERNEL_ELF.init_once(|| unsafe {

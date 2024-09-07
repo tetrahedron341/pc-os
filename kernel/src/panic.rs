@@ -44,7 +44,11 @@ fn default_panic_handler(info: &PanicInfo) -> ! {
     crate::println!("{}", info);
 
     if info.can_unwind() {
-        unwind::unwind_by_rbp();
+        unsafe {
+            let rbp: *const u64;
+            core::arch::asm!("mov {rbp}, rbp", rbp = out(reg) rbp);
+            unwind::unwind_by_rbp(rbp);
+        }
     }
 
     crate::arch::loop_forever();
