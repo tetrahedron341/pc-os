@@ -31,8 +31,17 @@ static KERNEL_FILE_REQUEST: limine::LimineKernelFileRequest = limine::LimineKern
 // 0xffff8000_00000000..=0xffff8fff_ffffffff -- HHDM is somewhere in here
 // 0xffffffff_80000000..=0xffffffff_ffffffff -- Kernel is somewhere in here
 
-const SERIAL_LOG_MIN: log::LevelFilter = log::LevelFilter::Info;
-const CONSOLE_LOG_MIN: log::LevelFilter = log::LevelFilter::Warn;
+const SERIAL_LOG_MAX: log::LevelFilter = {
+    #[cfg(debug_assertions)]
+    {
+        log::LevelFilter::Debug
+    }
+    #[cfg(not(debug_assertions))]
+    {
+        log::LevelFilter::Info
+    }
+};
+const CONSOLE_LOG_MAX: log::LevelFilter = log::LevelFilter::Warn;
 
 #[no_mangle]
 fn _start() -> ! {
@@ -42,6 +51,7 @@ fn _start() -> ! {
         KERNEL_ADDRESS_REQUEST.get_response().get().unwrap().virtual_base as usize
     });
     crate::serial_println!("KERNEL_START: {kernel_start:#X}");
+    crate::serial_println!("SERIAL_LOG_MAX: {SERIAL_LOG_MAX:?}");
     crate::panic::unwind::KERNEL_LEN.init_once(|| {
         KERNEL_FILE_REQUEST.get_response().get().unwrap().kernel_file.get().unwrap().length as usize
     });
@@ -57,7 +67,7 @@ fn _start() -> ! {
     unsafe { arch::x86_64::memory::init(get_phys_mem_offset(), get_mmap()) };
     crate::allocator::init_heap().unwrap();
 
-    crate::log::init(SERIAL_LOG_MIN, CONSOLE_LOG_MIN, 128);
+    crate::log::init(SERIAL_LOG_MAX, CONSOLE_LOG_MAX, 128);
     let modules = get_modules();
 
     let framebuffer = unsafe { get_framebuffer() }
