@@ -37,7 +37,7 @@ core2 = { version = "0.3.2", default-features = false, features = [
   "nightly",
 ] }
 cfg-if = "1.0.0"
-limine = { version = "0.1.8", optional = true }
+limine = { git = "https://github.com/limine-bootloader/limine-rs", rev = "83c7e72b82ced03f436f022138e7461cc4818a9d", optional = true }
 plain = "0.2.3"
 [target.'cfg(target_arch = "x86_64")'.dependencies]
 x86_64 = "0.14.6"
