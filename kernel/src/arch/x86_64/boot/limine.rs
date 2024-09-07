@@ -21,7 +21,10 @@ static MODULES_REQUEST: limine::LimineModuleRequest = limine::LimineModuleReques
 static FRAMEBUFFER_REQUEST: limine::LimineFramebufferRequest =
     limine::LimineFramebufferRequest::new(0);
 
-static _RSDP_REQUEST: limine::LimineRsdpRequest = limine::LimineRsdpRequest::new(0);
+static RSDP_REQUEST: limine::LimineRsdpRequest = limine::LimineRsdpRequest::new(0);
+
+static KERNEL_ADDRESS_REQUEST: limine::LimineKernelAddressRequest = limine::LimineKernelAddressRequest::new(0);
+static KERNEL_FILE_REQUEST: limine::LimineKernelFileRequest = limine::LimineKernelFileRequest::new(0);
 
 // With the HHDM feature on, 4-level paging, and KASLR enabled, our higher half looks like:
 //
@@ -35,6 +38,14 @@ const CONSOLE_LOG_MIN: log::LevelFilter = log::LevelFilter::Warn;
 fn _start() -> ! {
     x86_64::instructions::interrupts::disable();
     enable_simd();
+    crate::panic::unwind::KERNEL_START.init_once(|| {
+        KERNEL_ADDRESS_REQUEST.get_response().get().unwrap().virtual_base as usize
+    });
+
+    crate::panic::unwind::KERNEL_ELF.init_once(|| unsafe {
+        let ptr = KERNEL_FILE_REQUEST.get_response().get().unwrap().kernel_file.get().unwrap().base.as_ptr().unwrap() as *const _;
+        &*ptr
+    });
     arch::x86_64::gdt::init();
     arch::x86_64::interrupts::init_idt();
     arch::x86_64::syscall::init();
@@ -48,6 +59,7 @@ fn _start() -> ! {
     let framebuffer = unsafe { get_framebuffer() }
         .map(|fb| Box::new(fb) as Box<dyn Framebuffer + Send + Sync + 'static>);
     cpu::init_this_cpu();
+    enumerate_acpi_tables();
     x86_64::instructions::interrupts::enable();
 
     crate::init::kernel_main(crate::init::InitServices {
@@ -135,142 +147,25 @@ fn get_modules() -> Vec<BootModule> {
     modules
 }
 
-fn _enumerate_acpi_tables() {
-    #[repr(C, packed)]
-    struct Rsdp {
-        signature: [u8; 8],
-        checksum: u8,
-        oem_id: [u8; 6],
-        revision: u8,
-        rsdt_addr: u32,
-    }
+#[allow(unused)]
+fn enumerate_acpi_tables() {
+    #[derive(Clone, Copy)]
+    struct AcpiHandler {}
 
-    #[repr(C, packed)]
-    struct RsdpExtended {
-        rsdp: Rsdp,
-        len: u32,
-        xsdt_addr: u64,
-        checksum: u8,
-        reserved: [u8; 3],
-    }
-
-    #[repr(C, packed)]
-    #[derive(Debug, Clone, Copy)]
-    struct SdtHeader {
-        signature: [u8; 4],
-        len: u32,
-        revision: u8,
-        checksum: u8,
-        oem_id: [u8; 6],
-        oem_table_id: [u8; 8],
-        oem_revision: u32,
-        creator_id: u32,
-        creator_revision: u32,
-    }
-
-    #[repr(C, packed)]
-    #[derive(Debug)]
-    struct Mcfg {
-        header: SdtHeader,
-        _reserved: [u8; 8],
-        entries: [McfgEntry],
-    }
-
-    #[repr(C, packed)]
-    #[derive(Debug, Clone, Copy)]
-    struct McfgEntry {
-        base_addr: u64,
-        pci_seg_group: u16,
-        start_bus: u8,
-        end_bus: u8,
-        _reserved: [u8; 4],
-    }
-
-    let rsdp_response = _RSDP_REQUEST.get_response().get().unwrap();
-    let rsdp = rsdp_response.address.as_ptr().unwrap().cast::<Rsdp>();
-
-    unsafe {
-        let sig = &(*rsdp).signature;
-        assert_eq!(sig, b"RSD PTR ", "RSDP signature");
-        crate::serial_println!(
-            "RSDP signature: `{}`",
-            core::str::from_utf8_unchecked(&(*rsdp).signature)
-        );
-        crate::serial_println!(
-            "RSDP.OEMID: `{}`",
-            core::str::from_utf8_unchecked(&(*rsdp).oem_id)
-        );
-
-        let rev = (*rsdp).revision;
-        assert_eq!(rev, 2, "ACPI 2.0 required");
-    }
-    let rsdp = rsdp.cast::<RsdpExtended>();
-    let xsdt_addr = unsafe { phys_to_virt(PhysAddr::new((*rsdp).xsdt_addr)) };
-    let xsdt = xsdt_addr.as_mut_ptr::<SdtHeader>();
-    unsafe {
-        let xsdt_len = (*xsdt).len;
-        let xsdt_entries = (xsdt_len - core::mem::size_of::<SdtHeader>() as u32) / 8;
-        crate::serial_println!(
-            "XSDT signature: `{}`; length: {}; entries: {}",
-            core::str::from_utf8_unchecked(&(*xsdt).signature),
-            xsdt_len,
-            xsdt_entries
-        );
-
-        let table_addrs = {
-            let p = xsdt
-                .cast::<u8>()
-                .add(core::mem::size_of::<SdtHeader>())
-                .cast::<u64>();
-            core::slice::from_raw_parts(p, xsdt_entries as usize)
-        };
-
-        let mut mcfg = None;
-
-        crate::serial_print!("ACPI table signatures: ");
-        for e in table_addrs {
-            let vaddr = phys_to_virt(PhysAddr::new(*e));
-            let table = vaddr.as_mut_ptr::<SdtHeader>().as_ref().unwrap();
-            crate::serial_print!("`{}`, ", core::str::from_utf8_unchecked(&table.signature));
-            if &table.signature == b"MCFG" {
-                let mcfg_entries =
-                    (table.len - core::mem::size_of::<SdtHeader>() as u32 - 8) as usize / 16;
-                let p = vaddr.as_mut_ptr::<()>();
-                let mcfg_ptr = core::ptr::from_raw_parts::<Mcfg>(p, mcfg_entries);
-                mcfg.replace(mcfg_ptr);
-            }
-        }
-        crate::serial_println!("");
-
-        if let Some(mcfg) = mcfg {
-            let mcfg = &*mcfg;
-            crate::serial_println!("{mcfg:?}");
-
-            for e in &mcfg.entries {
-                let base_addr = e.base_addr;
-                for bus in e.start_bus..=e.end_bus {
-                    let bus_off = ((bus - e.start_bus) as u64) << 20;
-                    for device in 0..32 {
-                        let dev_off = (device as u64) << 15;
-                        for func in 0..8 {
-                            let fun_off = (func as u64) << 12;
-                            let addr = PhysAddr::new(base_addr | bus_off | dev_off | fun_off);
-                            let p = phys_to_virt(addr).as_mut_ptr::<[u16; 6]>();
-                            let [vid, did, ..] = *p;
-                            if vid == 0xFFFF {
-                                continue;
-                            }
-                            crate::serial_println!("PCI @ BUS {bus} - DEV {device} - FUN {func}: VID {vid:04X} - DID {did:04X}");
-                            let [subclass, class] = u16::to_le_bytes((*p)[5]);
-                            crate::serial_println!(
-                                "    Class: {class:02X}, Subclass: {subclass:02X}"
-                            );
-                        }
-                    }
-                }
-            }
+    impl acpi::AcpiHandler for AcpiHandler {
+        unsafe fn map_physical_region<T>(&self, physical_address: usize, size: usize) -> acpi::PhysicalMapping<Self, T> {
+            let vaddr = core::ptr::NonNull::new(phys_to_virt(PhysAddr::new(physical_address as u64)).as_mut_ptr()).unwrap();
+            acpi::PhysicalMapping::new(physical_address, vaddr, size, size, *self)
+        } 
+        fn unmap_physical_region<T>(region: &acpi::PhysicalMapping<Self, T>) {
+            
         }
     }
+
+    let rsdp_response = RSDP_REQUEST.get_response().get().unwrap();
+    let tables = unsafe {acpi::AcpiTables::from_rsdp(AcpiHandler {}, rsdp_response.address.as_ptr().unwrap() as usize)}.unwrap();
+    let platform = tables.platform_info().unwrap();
+    let acpi::platform::interrupt::InterruptModel::Apic(apic) = platform.interrupt_model else {return};
 }
 
 /// # Safety

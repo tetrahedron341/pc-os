@@ -2,6 +2,8 @@ use core::{panic::PanicInfo, sync::atomic::AtomicPtr};
 
 use crate::serial_println;
 
+pub mod unwind;
+
 static PANIC_HOOK: AtomicPtr<()> = AtomicPtr::new(default_panic_handler as _);
 
 /// # Safety:
@@ -40,6 +42,10 @@ fn default_panic_handler(info: &PanicInfo) -> ! {
 
     crate::serial_println!("{}", info);
     crate::println!("{}", info);
+
+    if info.can_unwind() {
+        unwind::unwind_by_rbp();
+    }
 
     crate::arch::loop_forever();
 }

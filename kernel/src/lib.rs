@@ -12,6 +12,7 @@
 #![feature(ptr_metadata)]
 #![feature(never_type)]
 #![feature(int_roundings)]
+#![feature(panic_can_unwind)]
 #![test_runner(crate::test::test_runner)]
 #![allow(clippy::new_without_default)]
 #![reexport_test_harness_main = "test_main"]
