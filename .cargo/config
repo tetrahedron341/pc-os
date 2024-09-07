@@ -1,0 +1,2 @@
+[target.'cfg(all(target_os = "none", not(test)))']
+runner = ["just", "_kernel_runner"]
