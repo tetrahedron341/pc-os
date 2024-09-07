@@ -4,12 +4,15 @@ use x86_64::structures::paging::{
     FrameAllocator, Mapper, PageTable, PageTableFlags, PageTableIndex, RecursivePageTable,
 };
 
+use self::mmap::MemoryRegion;
+
 pub type VirtAddr = x86_64::VirtAddr;
 pub type PhysAddr = x86_64::PhysAddr;
 pub type PhysFrame = x86_64::structures::paging::PhysFrame;
 pub type Page = x86_64::structures::paging::Page;
 
 mod frame_allocator;
+pub(super) mod mmap;
 
 static FRAME_ALLOCATOR: OnceCell<Mutex<frame_allocator::BootInfoFrameAllocator>> =
     OnceCell::uninit();
@@ -20,10 +23,7 @@ static MAPPER: OnceCell<Mutex<RecursivePageTable>> = OnceCell::uninit();
 /// # Safety
 /// `recursive_index` must point to an actual level 4 page table.
 /// `memory_map` must be a valid memory map that does not include any in-use memory pages.
-pub(super) unsafe fn init(
-    recursive_index: u16,
-    memory_map: &'static bootloader::boot_info::MemoryRegions,
-) {
+pub(super) unsafe fn init(recursive_index: u16, memory_map: &'static [MemoryRegion]) {
     let lvl_4_page_table = get_page_table(recursive_index);
     MAPPER.init_once(|| Mutex::new(RecursivePageTable::new(lvl_4_page_table).unwrap()));
     FRAME_ALLOCATOR
