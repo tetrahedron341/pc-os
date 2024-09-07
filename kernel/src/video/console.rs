@@ -126,19 +126,6 @@ pub fn _print(args: core::fmt::Arguments) {
 }
 
 #[macro_export]
-#[deprecated = "Moving on to VESA-based graphics"]
-macro_rules! vga_print {
-    ($($arg:tt)*) => ($crate::video::console::vga::_print(format_args!($($arg)*)));
-}
-
-#[macro_export]
-#[deprecated = "Moving on to VESA-based graphics"]
-macro_rules! vga_println {
-    () => ($crate::print!("\n"));
-    ($($arg:tt)*) => ($crate::print!("{}\n", format_args!($($arg)*)));
-}
-
-#[macro_export]
 macro_rules! print {
     ($($arg:tt)*) => ($crate::video::console::_print(format_args!($($arg)*)));
 }
