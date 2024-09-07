@@ -2,13 +2,11 @@
 #![no_main]
 
 use alloc::{boxed::Box, string::String};
-use kernel::{
-    println, serial_println,
-    video::{
-        framebuffer::{GfxRectangle, Pixel},
-        Framebuffer,
-    },
+use kernel::video::{
+    framebuffer::{GfxRectangle, Pixel},
+    Framebuffer,
 };
+use log::info;
 
 extern crate alloc;
 extern crate kernel;
@@ -16,7 +14,7 @@ extern crate kernel;
 kernel::kernel_main!(main);
 
 fn main(init_services: kernel::init::InitServices) -> ! {
-    serial_println!("[main] Initializing console...");
+    info!("Initializing console...");
 
     if let Some(mut fb) = init_services.framebuffer {
         let width = fb.info().width;
@@ -46,22 +44,21 @@ fn main(init_services: kernel::init::InitServices) -> ! {
         *kernel::video::console::CONSOLE.lock() = Some(console);
     }
 
-    crate::serial_println!("[main] Console ready");
+    info!("Console ready");
 
     x86_64::instructions::interrupts::without_interrupts(|| unsafe {
         let mut pics = kernel::arch::interrupts::PICS.lock();
         pics.write_masks(0xFC, 0xFF);
     });
-    crate::serial_println!("[main] Timer & keyboard interrupts unmasked");
+    info!("Timer & keyboard interrupts unmasked");
 
-    println!();
-    println!("Hello world!");
-    println!(
+    info!("Hello world!");
+    info!(
         "HHDM offset: {:#?}",
         kernel::arch::memory::phys_to_virt(kernel::arch::memory::PhysAddr::zero())
     );
 
-    println!("Loaded boot modules: {:#?}", init_services.modules);
+    info!("Loaded boot modules: {:#?}", init_services.modules);
     let initrd = init_services
         .modules
         .iter()
@@ -70,7 +67,7 @@ fn main(init_services: kernel::init::InitServices) -> ! {
 
     let mut fs = kernel::file::ustar::get_all_entries(initrd.data);
     for entry in fs.iter() {
-        println!("File: {}, Size: {}", entry.file_name(), entry.file_size());
+        info!("File: {}, Size: {}", entry.file_name(), entry.file_size());
     }
     if let Some(hello) = fs.iter_mut().find(|f| f.file_name() == "hello.txt") {
         let s = {
@@ -79,7 +76,7 @@ fn main(init_services: kernel::init::InitServices) -> ! {
             hello.read(&mut buf).unwrap();
             alloc::string::String::from_utf8_lossy(&buf).into_owned()
         };
-        println!("hello.txt contents:\n{}", s)
+        info!("hello.txt contents:\n{}", s)
     }
 
     kernel::task::init_executor();

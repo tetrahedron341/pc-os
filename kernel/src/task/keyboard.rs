@@ -1,4 +1,3 @@
-use crate::serial_println;
 use conquer_once::spin::OnceCell;
 use crossbeam_queue::ArrayQueue;
 use futures_util::task::AtomicWaker;
@@ -9,12 +8,12 @@ static WAKER: AtomicWaker = AtomicWaker::new();
 pub(crate) fn add_scancode(scancode: u8) {
     if let Ok(queue) = SCANCODE_QUEUE.try_get() {
         if queue.push(scancode).is_err() {
-            serial_println!("WARNING: Scancode queue full; dropping keyboard input");
+            log::warn!("Scancode queue full; dropping keyboard input");
         } else {
             WAKER.wake();
         }
     } else {
-        serial_println!("WARNING: Scancode queue uninitialized");
+        log::warn!("Scancode queue uninitialized");
     }
 }
 

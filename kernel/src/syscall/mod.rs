@@ -4,7 +4,7 @@ use kernel_uapi::syscall::{Syscall, SyscallErrorCode, SyscallResult, SyscallResu
 use log::info;
 
 pub extern "C" fn syscall_handler(op: &mut Syscall) -> SyscallResult {
-    crate::serial_println!("Syscall: op: {:?}", core::mem::discriminant(op));
+    log::trace!("Syscall: {:?}", op);
     match op {
         Syscall::ping { .. } => {
             info!("Ping!");
