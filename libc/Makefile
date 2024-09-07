@@ -11,6 +11,7 @@ OBJS=\
 	syscall.o \
 	sys/ping.o \
 	sys/putchar.o \
+	sys/sleep.o \
 
 .PHONY: all clean
 

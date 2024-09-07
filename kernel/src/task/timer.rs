@@ -21,7 +21,7 @@ pub(crate) fn tick_timer() {
     }
 }
 
-pub fn wait_n_ticks(n: u64) -> impl Future<Output = ()> {
+pub fn wait_n_ticks(n: u64) -> impl Future<Output = ()> + Send {
     TimerWaiter(TICKS.load(Ordering::Relaxed) + n)
 }
 
