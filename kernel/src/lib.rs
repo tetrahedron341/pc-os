@@ -86,8 +86,8 @@ bootloader::entry_point!(test_entry_point);
 
 /// Entry point for `cargo test`
 #[cfg(test)]
-fn test_entry_point(_boot_info: &'static bootloader::BootInfo) -> ! {
-    init();
+fn test_entry_point(boot_info: &'static mut bootloader::BootInfo) -> ! {
+    init::init(boot_info);
     test_main();
     hlt_loop();
 }

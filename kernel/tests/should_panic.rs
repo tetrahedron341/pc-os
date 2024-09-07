@@ -2,7 +2,7 @@
 #![no_main]
 
 use core::panic::PanicInfo;
-use pc_os::{serial_print, serial_println, exit_qemu, QemuExitCode};
+use kernel::{exit_qemu, serial_print, serial_println, QemuExitCode};
 
 #[no_mangle] // don't mangle the name of this function
 pub extern "C" fn _start() -> ! {
@@ -19,5 +19,5 @@ fn panic(_info: &PanicInfo) -> ! {
 
 fn should_panic() {
     serial_print!("{}::should_panic...\t", module_path!());
-    assert_eq!(1,2)
+    assert_eq!(1, 2)
 }
