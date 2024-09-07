@@ -1,4 +1,4 @@
-use bare_io::{Read, Result as IoResult};
+use core2::io::{Read, Result as IoResult};
 
 #[repr(C)]
 #[repr(align(1))]
@@ -31,7 +31,7 @@ pub enum UstarFormatError {
 
 pub struct UstarFile<'a> {
     raw_header: &'a RawUstarHeader,
-    data: bare_io::Cursor<&'a [u8]>,
+    data: core2::io::Cursor<&'a [u8]>,
 }
 
 impl<'a> UstarFile<'a> {
@@ -47,7 +47,7 @@ impl<'a> UstarFile<'a> {
         let data = {
             let base = (ptr as *const u8).offset(512);
             let size = oct_to_u32(&raw_header.file_size).unwrap() as usize;
-            bare_io::Cursor::new(core::slice::from_raw_parts(base, size))
+            core2::io::Cursor::new(core::slice::from_raw_parts(base, size))
         };
         UstarFile { raw_header, data }
     }
@@ -91,7 +91,7 @@ impl<'a> UstarFile<'a> {
 
         Ok(UstarFile {
             raw_header: raw,
-            data: bare_io::Cursor::new(&slice[512..512 + file_size]),
+            data: core2::io::Cursor::new(&slice[512..512 + file_size]),
         })
     }
 

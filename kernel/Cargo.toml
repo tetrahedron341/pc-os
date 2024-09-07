@@ -1,7 +1,7 @@
 [package]
 name = "kernel"
 version = "0.1.0"
-authors = ["Ben Engdahl <bengdahl341@gmail.com>"]
+authors = ["tetra <bengdahl341@gmail.com>"]
 edition = "2021"
 build = "build.rs"
 
@@ -13,7 +13,7 @@ map-physical-memory = true
 physical-memory-offset = 0x0000_4000_0000_0000
 
 [dependencies]
-bootloader = { git = "https://github.com/bengdahl/bootloader" }
+bootloader = { git = "https://github.com/tetrahedron341/bootloader" }
 volatile = "0.2.6"
 lazy_static = { version = "*", features = ["spin_no_std"] }
 spin = "0.9"
@@ -32,7 +32,10 @@ futures-util = { version = "0.3.4", default-features = false, features = [
 log = { version = "0.4", default-features = false }
 goblin = { version = "0.2.3", default-features = false, features = ["elf64"] }
 acpi = "4.0.0"
-bare-io = { version = "0.2.1", features = ["alloc", "nightly"] }
+core2 = { version = "0.3.2", default-features = false, features = [
+    "alloc",
+    "nightly",
+] }
 
 [[test]]
 name = "should_panic"
