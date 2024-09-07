@@ -16,8 +16,11 @@ mod frame_allocator;
 pub(super) mod mmap;
 pub mod space;
 
-pub static FRAME_ALLOCATOR: OnceCell<Mutex<frame_allocator::BootInfoFrameAllocator>> =
-    OnceCell::uninit();
+const FALLOC_ENTRIES: usize = 128;
+
+pub static FRAME_ALLOCATOR: OnceCell<
+    Mutex<frame_allocator::BuddyAllocatorManager<FALLOC_ENTRIES>>,
+> = OnceCell::uninit();
 pub static MAPPER: OnceCell<Mutex<OffsetPageTable>> = OnceCell::uninit();
 
 /// Initialize the kernel frame allocator and page mapper
@@ -30,10 +33,11 @@ pub(super) unsafe fn init(phys_mem_offset: VirtAddr, memory_map: &'static [Memor
     let lvl_4_page_table = get_page_table();
     MAPPER.init_once(|| Mutex::new(OffsetPageTable::new(lvl_4_page_table, phys_mem_offset)));
 
-    let falloc = frame_allocator::BootInfoFrameAllocator::init(memory_map);
+    let falloc =
+        frame_allocator::BuddyAllocatorManager::from_mmap(memory_map, phys_mem_offset.as_mut_ptr());
     crate::serial_println!(
         "[arch::x86_64::memory::init] Free memory: {} KB",
-        falloc.free_pages() * 4
+        falloc.remaining() / 1024
     );
     crate::serial_println!(
         "[arch::x86_64::memory::init] LV4 PT @ 0x{:016x?}",
@@ -59,7 +63,8 @@ unsafe fn get_page_table() -> &'static mut PageTable {
 pub fn allocate_frame<S>() -> Option<X86PhysFrame<S>>
 where
     S: PageSize,
-    frame_allocator::BootInfoFrameAllocator: x86_64::structures::paging::FrameAllocator<S>,
+    frame_allocator::BuddyAllocatorManager<FALLOC_ENTRIES>:
+        x86_64::structures::paging::FrameAllocator<S>,
 {
     FRAME_ALLOCATOR.get().unwrap().lock().allocate_frame()
 }
