@@ -7,5 +7,4 @@ edition = "2021"
 
 [dependencies]
 argh = "0.1.6"
-bootloader-locator = "0.0.4"
-locate-cargo-manifest = "0.2.2"
+json = "*"

@@ -1,8 +1,7 @@
 [target.'cfg(target_os = "none")']
 runner = "cargo run --package boot --"
-rustflags = ["--cfg", "memchr_disable_auto_simd"]
 
 [alias]
-kbuild = "build --target x86_64-pc_os.json -Zbuild-std=core,alloc -Zbuild-std-features=compiler-builtins-mem"
-kimage = "run --target x86_64-pc_os.json -Zbuild-std=core,alloc -Zbuild-std-features=compiler-builtins-mem -- --no-run"
-krun = "run --target x86_64-pc_os.json -Zbuild-std=core,alloc -Zbuild-std-features=compiler-builtins-mem"
+kbuild = "build --bin kernel --target x86_64-pc_os.json -Zbuild-std=core,alloc -Zbuild-std-features=compiler-builtins-mem"
+kimage = "run --bin kernel --target x86_64-pc_os.json -Zbuild-std=core,alloc -Zbuild-std-features=compiler-builtins-mem -- --no-run"
+krun = "run --bin kernel --target x86_64-pc_os.json -Zbuild-std=core,alloc -Zbuild-std-features=compiler-builtins-mem"
