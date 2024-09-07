@@ -38,8 +38,8 @@ fn _start() -> ! {
             r.insert(Cr4Flags::OSFXSR | Cr4Flags::OSXMMEXCPT_ENABLE);
         });
     }
-    arch::x86_64::interrupts::init_idt();
     arch::x86_64::gdt::init();
+    arch::x86_64::interrupts::init_idt();
 
     let mmap_response = MMAP_REQUEST
         .get_response()

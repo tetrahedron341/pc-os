@@ -107,6 +107,10 @@ extern "x86-interrupt" fn page_fault_handler(
     loop_forever();
 }
 
+extern "x86-interrupt" fn gp_fault_handler(isf: InterruptStackFrame, error_code: u64) {
+    panic!("EXCEPTION: GENERAL PROTECTION FAULT\nError code: {error_code}\n{isf:#?}");
+}
+
 extern "x86-interrupt" fn timer_interrupt_handler(_stack_frame: InterruptStackFrame) {
     crate::task::timer::tick_timer();
 
@@ -149,12 +153,20 @@ pub fn init_idt() {
                 .set_stack_index(super::gdt::DOUBLE_FAULT_IST_INDEX);
         }
         idt.page_fault.set_handler_fn(page_fault_handler);
+        idt.general_protection_fault
+            .set_handler_fn(gp_fault_handler);
         idt[TIMER_VEC as usize].set_handler_fn(timer_interrupt_handler);
         idt[KEYBOARD_VEC as usize].set_handler_fn(keyboard_interrupt_handler);
         idt
     })
     .expect("Tried to initialize IDT twice");
     IDT.get().unwrap().load();
+
+    unsafe {
+        let mut pics = PICS.lock();
+        pics.initialize();
+        pics.write_masks(0xFE, 0xFF);
+    };
 }
 
 #[test_case]
