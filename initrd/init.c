@@ -15,9 +15,5 @@ void _start()
         putchar(text[i]);
     }
 
-    while (1)
-    {
-    }
-
     abort();
 }
