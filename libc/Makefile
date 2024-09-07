@@ -9,7 +9,7 @@ OBJS=\
 	string/strlen.o \
 	stdlib/abort.o \
 
-LIBKERNEL_UAPI=../target/x86_64-pc_os/release/libkernel_uapi.a 
+LIBKERNEL_UAPI=../target/x86_64-unknown-none/release/libkernel_uapi.a 
 
 DEPS=\
 	../kernel-uapi/include/uapi.h
@@ -29,7 +29,7 @@ libc.a: ../kernel-uapi/include/uapi.h $(OBJS) $(LIBKERNEL_UAPI) $(DEPS)
 	cd ../kernel-uapi; cbindgen -o include/uapi.h
 
 $(LIBKERNEL_UAPI):
-	cargo rustc --target ../x86_64-pc_os.json --release -p kernel-uapi -Zbuild-std=core --crate-type staticlib --features panic_handler
+	cargo rustc --target x86_64-unknown-none --release -p kernel-uapi -Zbuild-std=core --crate-type staticlib --features panic_handler
 
 clean: 
 	rm $(OBJS) $(BINARIES)
