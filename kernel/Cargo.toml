@@ -42,6 +42,7 @@ x86_64 = "0.14.6"
 [features]
 default = ["phil_opp_bootloader"]
 custom_panic = []
+custom_entry_point = []
 phil_opp_bootloader = ["bootloader"]
 
 [[test]]
@@ -54,6 +55,17 @@ name = "stack_overflow"
 harness = false
 required-features = ["custom_panic"]
 
+[[test]]
+name = "logger"
+required-features = ["custom_entry_point"]
+
+[[test]]
+name = "basic_boot"
+required-features = []
+
+[[test]]
+name = "heap_allocation"
+required-features = ["custom_entry_point"]
 
 [build-dependencies]
 bindgen = "0.59.1"

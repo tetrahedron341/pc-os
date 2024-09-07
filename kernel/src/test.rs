@@ -46,16 +46,3 @@ pub fn test_panic_handler(info: &core::panic::PanicInfo) -> ! {
     serial_println!("Error: {}\n", info);
     exit_qemu(QemuExitCode::Failure);
 }
-
-cfg_if::cfg_if! {
-    if #[cfg(test)] {
-        bootloader::entry_point!(test_entry_point);
-
-        /// Entry point for `cargo test`
-        fn test_entry_point(boot_info: &'static mut bootloader::BootInfo) -> ! {
-            crate::init::init(boot_info);
-            crate::test_main();
-            crate::arch::loop_forever();
-        }
-    }
-}
