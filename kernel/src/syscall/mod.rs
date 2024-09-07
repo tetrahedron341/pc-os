@@ -50,7 +50,7 @@ extern "C" fn syscall_handler() {
         (r14, r15 as usize as *mut u8)
     };
 
-    let r = syscalls::syscall_dispatch(op, ptr);
+    let r: u64 = syscalls::syscall_dispatch(op, ptr).into();
     unsafe {
         asm!(
             "mov r14, {r}",

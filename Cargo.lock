@@ -80,7 +80,6 @@ dependencies = [
 [[package]]
 name = "bootloader"
 version = "0.10.9"
-source = "git+https://github.com/bengdahl/bootloader#a4f41b1eddb75807fed3c65fede65b4e5a0ec87f"
 
 [[package]]
 name = "cfg-if"
@@ -192,6 +191,7 @@ dependencies = [
  "futures-util",
  "goblin",
  "lazy_static",
+ "libkernel",
  "linked_list_allocator",
  "log",
  "pc-keyboard",
@@ -210,6 +210,10 @@ checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 dependencies = [
  "spin 0.5.2",
 ]
+
+[[package]]
+name = "libkernel"
+version = "0.1.0"
 
 [[package]]
 name = "linked_list_allocator"
