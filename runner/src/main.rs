@@ -207,7 +207,8 @@ fn build_image(img_dir: &Path, kernel_binary_path: &Path, limine_prefix: &Path, 
     let initrd = make_initrd();
     std::fs::copy(initrd, img_dir.join("initrd")).unwrap();
 
-    std::process::Command::new("mkisofs")
+    std::process::Command::new("xorriso")
+        .args(["-as", "mkisofs"])
         .args(["-b", "limine-cd.bin"])
         .args(["-e", "limine-cd-efi.bin"])
         .arg("-o")
