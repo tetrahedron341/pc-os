@@ -16,7 +16,7 @@ mod frame_allocator;
 pub(super) mod mmap;
 pub mod space;
 
-const FALLOC_ENTRIES: usize = 128;
+const FALLOC_ENTRIES: usize = 16;
 
 pub static FRAME_ALLOCATOR: OnceCell<
     Mutex<frame_allocator::BuddyAllocatorManager<FALLOC_ENTRIES>>,
