@@ -15,6 +15,7 @@ dynamic-range-end = 0x0000_DFFF_FFFF_F000      # 0xFFFF_DFFF_FFFF_F000
 
 [dependencies]
 bootloader = { git = "https://github.com/rust-osdev/bootloader", rev = "ac46d0455b41c11e5d316348d068df1c495ce0af", optional = true }
+kernel-uapi = { path = "../kernel-uapi", default-features = false }
 volatile = "0.2.6"
 lazy_static = { version = "*", features = ["spin_no_std"] }
 spin = "0.9"
@@ -66,6 +67,3 @@ name = "basic_boot"
 
 [[test]]
 name = "heap_allocation"
-
-[build-dependencies]
-bindgen = "0.59.1"

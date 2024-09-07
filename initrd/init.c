@@ -1,8 +1,6 @@
 #include <stdlib.h>
 #include <stddef.h>
-#include <sys/ping.h>
-#include <sys/putchar.h>
-#include <sys/sleep.h>
+#include <uapi.h>
 
 void print(const char *s, size_t len);
 size_t itoa(int n, char *buf, size_t buflen);
@@ -11,7 +9,7 @@ void _start()
 {
     for (int i = 0; i < 3; i++)
     {
-        ping();
+        ping(0, NULL);
     }
 
     char text[] = "Hello from userland C!\n";
@@ -24,7 +22,7 @@ void _start()
         print(numbuf, numlen);
         char suffix[] = " seconds\n";
         print(suffix, sizeof suffix);
-        sleep_ms(1000);
+        sleep_ms(1000, NULL);
     }
 
     abort();
@@ -34,7 +32,7 @@ void print(const char *s, size_t len)
 {
     for (int i = 0; i < len; i++)
     {
-        putchar(s[i]);
+        put_char(s[i], NULL);
     }
 }
 

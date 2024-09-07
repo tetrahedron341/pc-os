@@ -3,6 +3,7 @@
 #![feature(custom_test_frameworks)]
 #![feature(abi_x86_interrupt)]
 #![feature(alloc_error_handler)]
+#![feature(asm_const)]
 #![feature(const_mut_refs)]
 #![feature(naked_functions)]
 #![feature(maybe_uninit_uninit_array)]
@@ -31,11 +32,6 @@ pub mod syscall;
 pub mod task;
 pub mod test;
 pub mod video;
-
-#[allow(clippy::all)]
-pub mod uapi {
-    include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
-}
 
 #[cfg(test)]
 crate::kernel_main!(test::TestMainBuilder::new(test_main).build());

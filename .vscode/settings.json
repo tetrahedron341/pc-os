@@ -1,7 +1,7 @@
 {
-    "rust-analyzer.checkOnSave.allTargets": false,
-    "rust-analyzer.cargo.unsetTest": [
-        "core",
-        "pc-os"
-    ]
+	"rust-analyzer.checkOnSave.allTargets": false,
+	"rust-analyzer.cargo.unsetTest": ["core", "pc-os"],
+	"files.associations": {
+		"uapi.h": "c"
+	}
 }
