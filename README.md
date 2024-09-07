@@ -1,25 +1,29 @@
-# im very bad at naming things
+# hey if you see this leave an issue with a name suggestion
 
-# prerequisites
+## prerequisites
 
-0. install rust, a C compiler, and `make`.
-1. install [limine](https://github.com/limine-bootloader/limine). instructions are in limine's README. make sure you complete the "Installing Limine binaries" section.
-    - if you change the prefix limine was installed in, make sure to set the `LIMINE_PREFIX` variable in `.cargo/config.toml`.
-2. install ovmf.
-    - on ubuntu, you can install it from the `ovmf` package, which will place the `OVMF.fd` file at `/usr/share/ovmf/OVMF.fd`.
-    - if you have `OVMF.fd` placed somewhere other than `/usr/share/ovmf/OVMF.fd`, make sure to change the `OVMF_FD` variable in `.cargo/config.toml`.
+- rust nightly
+- [`just`](https://github.com/casey/just).
+- qemu
+- [limine](https://github.com/limine-bootloader/limine).
+- ovmf
 
-# building
+## building
 
-use `cargo krun` or `cargo kbuild` as you would do with normal rust projects.
+everything is available as a `just` target. 
+- `just run <DISK_IMAGE> [EXTRA_QEMU_ARGS]`: run the kernel and initrd in qemu
+- `just kernel`: build the kernel
+- `just initrd [EXTRA_FILES]`: builds the initrd, with optional extra files bundled
 
-to make the kernel in release mode without running it, use `cargo kimage`.
+everything builds in debug mode by default. to change the build profile, set the environment variable `{KERNEL,USER,}PROFILE=release`
 
-# testing
+if the justfile cannot find limine or ovmf, set the environment variables `LIMINE_PREFIX` and `OVMF_PATH`. default values are in the `Justfile`.
 
-use `cargo ktest`.
+## testing
 
-# acknowledgements
+TODO
+
+## acknowledgements
 
 cool projects that i either use directly or took inspiration from. check them out
 
