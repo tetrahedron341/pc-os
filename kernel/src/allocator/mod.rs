@@ -46,7 +46,7 @@ pub fn init_heap(// mapper: &mut impl Mapper<Size4KiB>,
         Page::range_inclusive(heap_start_page, heap_end_page)
     };
 
-    crate::serial_print!("[alloc] Mapping heap pages... ");
+    log::info!("Mapping heap pages... ");
     for page in page_range {
         let frame = crate::arch::memory::allocate_frame::<Size4KiB>()
             .ok_or(MapToError::FrameAllocationFailed)?;
@@ -54,15 +54,15 @@ pub fn init_heap(// mapper: &mut impl Mapper<Size4KiB>,
             crate::arch::memory::map_page(page, frame);
         }
     }
-    crate::serial_println!("OK");
+    log::info!("OK");
 
-    crate::serial_print!("[alloc] Initializing heap... ");
+    log::info!("Initializing heap...");
 
     unsafe {
         ALLOC.lock().init(HEAP_START, HEAP_SIZE);
     }
 
-    crate::serial_println!("OK");
+    log::info!("OK");
 
     Ok(())
 }
