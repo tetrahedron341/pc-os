@@ -32,7 +32,7 @@ const RUN_ARGS: &[&str] = &[
     // "-display",
     // "none",
     "-device",
-    "e1000",
+    "rtl8139",
 ];
 
 const TEST_ARGS: &[&str] = &[
