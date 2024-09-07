@@ -1,5 +1,6 @@
 #![no_std]
 #![feature(c_size_t)]
+#![allow(internal_features)]
 #![feature(lang_items)]
 
 pub use core::*;
