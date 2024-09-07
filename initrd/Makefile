@@ -1,6 +1,6 @@
 BINS = init
 FILES = $(BINS) hello.txt
-LDFLAGS = -T link.ld -nostdlib -L../libc -lc
+LDFLAGS = -nostdlib -L../libc -lc 
 CFLAGS = -I../libc/include -ffreestanding
 
 .PHONY: clean
