@@ -2,11 +2,11 @@ pub static KERNEL_START: conquer_once::spin::OnceCell<usize> = conquer_once::spi
 pub static KERNEL_ELF: conquer_once::spin::OnceCell<&'static goblin::elf::header::header64::Header> = conquer_once::spin::OnceCell::uninit();
 
 pub fn unwind_by_rbp() {
-    unsafe fn inner(depth: usize, rbp: *const u64) {
+    unsafe fn inner(depth: usize, rbp: *const u64, syms: Option<&SymbolFinder>) {
         if rbp.is_null() {return}
         let saved_rbp = *rbp;
         let return_addr = *(rbp.offset(1));
-        let symbol = lookup_symbol(return_addr as usize);
+        let symbol = syms.and_then(|syms| syms.lookup_symbol(return_addr as usize));
         crate::serial_print!("    {depth}: {return_addr:#X}");
         if let Some((name,off)) = symbol {
             let demangled_name = rustc_demangle::demangle(name);
@@ -14,14 +14,15 @@ pub fn unwind_by_rbp() {
         } else {
             crate::serial_println!("");
         }
-        inner(depth+1, saved_rbp as usize as *const _);
+        inner(depth+1, saved_rbp as usize as *const _, syms);
     }
 
     crate::serial_println!("START OF BACKTRACE");
     let rbp: *const u64;
     unsafe {
         core::arch::asm!("mov {rbp}, rbp", rbp = out(reg) rbp);
-        inner(0, rbp);
+        let syms = SymbolFinder::new();
+        inner(0, rbp, syms.as_ref());
     }
     crate::serial_println!("END OF BACKTRACE");
 }
@@ -29,54 +30,66 @@ pub fn unwind_by_rbp() {
 struct SymbolFinder<'elf> {
     strtab: &'elf [u8],
     symtab: &'elf [goblin::elf64::sym::Sym],
-    kernel_code_offset: isize,
+    kernel_code_offset: usize,
 }
 
-pub fn lookup_symbol(vaddr:usize) -> Option<(&'static str, usize)> {
-    let kernel_load_vaddr = KERNEL_START.get()?;
-    let offset = vaddr-kernel_load_vaddr;
-    let vaddr = offset + 0xFFFF_FFFF_8000_0000;
-    let elf = *KERNEL_ELF.get()?;
-    let elf_ptr = elf as *const _ as *const u8;
-    let at_offset = |offset: usize| unsafe {
-        elf_ptr.offset(offset as isize)
-    };
+impl<'elf> SymbolFinder<'elf> {
+    unsafe fn new() -> Option<Self> {
+        let kernel_load_vaddr = KERNEL_START.get()?;
+        let kernel_code_offset = 0xFFFF_FFFF_8000_0000-kernel_load_vaddr;
+        let elf = *KERNEL_ELF.get()?;
+        let elf_ptr = elf as *const _ as *const u8;
+        let at_offset = |offset: usize| unsafe {
+            elf_ptr.offset(offset as isize)
+        };
 
-    let shtab = at_offset(elf.e_shoff as usize).cast::<goblin::elf64::section_header::SectionHeader>();
-    let shnum = elf.e_shnum;
-    let shtab = unsafe {core::slice::from_raw_parts(shtab, shnum as usize)};
+        let shtab = at_offset(elf.e_shoff as usize).cast::<goblin::elf64::section_header::SectionHeader>();
+        let shnum = elf.e_shnum;
+        let shtab = unsafe {core::slice::from_raw_parts(shtab, shnum as usize)};
 
-    let shstrtab = &shtab[elf.e_shstrndx as usize];
-    let shstrtabdata = at_offset(shstrtab.sh_offset as usize);
-    let shstrtablen = shstrtab.sh_size as usize;
-    let shstrtab = unsafe {core::slice::from_raw_parts(shstrtabdata, shstrtablen) };
-    let get_shstr = |offset: usize| {
+        let shstrtab = &shtab[elf.e_shstrndx as usize];
+        let shstrtabdata = at_offset(shstrtab.sh_offset as usize);
+        let shstrtablen = shstrtab.sh_size as usize;
+        let shstrtab = unsafe {core::slice::from_raw_parts(shstrtabdata, shstrtablen) };
+        let get_shstr = |offset: usize| {
+            let mut len = 0;
+            while shstrtab[offset+len] != b'\0' {
+                len+=1;
+            }
+            return unsafe {core::str::from_utf8_unchecked(&shstrtab[offset..offset+len])};
+        };
+
+        let strtab = shtab.iter().find(|sh| get_shstr(sh.sh_name as usize)==".strtab")?;
+        let strtabdata = at_offset(strtab.sh_offset as usize);
+        let strtablen = strtab.sh_size as usize;
+        let strtab = unsafe {core::slice::from_raw_parts(strtabdata, strtablen)};
+        let symtab = shtab.iter().find(|&&sh| {sh.sh_type == goblin::elf64::section_header::SHT_SYMTAB})?;
+        let symtab = unsafe {core::slice::from_raw_parts(at_offset(symtab.sh_offset as usize).cast::<goblin::elf64::sym::Sym>(), symtab.sh_size as usize)};
+        
+        Some(SymbolFinder {
+            strtab,
+            symtab,
+            kernel_code_offset
+        })
+    }
+
+    fn get_str(&self, offset: usize) -> Option<&str> {
         let mut len = 0;
-        while shstrtab[offset+len] != b'\0' {
+        while *self.strtab.get(offset+len)? != b'\0' {
             len+=1;
         }
-        return unsafe {core::str::from_utf8_unchecked(&shstrtab[offset..offset+len])};
-    };
+        return core::str::from_utf8(&self.strtab[offset..offset+len]).ok();
+    }
 
-    let strtab = shtab.iter().find(|sh| get_shstr(sh.sh_name as usize)==".strtab")?;
-    let strtabdata = at_offset(strtab.sh_offset as usize);
-    let strtablen = strtab.sh_size as usize;
-    let strtab = unsafe {core::slice::from_raw_parts(strtabdata, strtablen)};
-    let get_str = |offset: usize| {
-        let mut len = 0;
-        while strtab[offset+len] != b'\0' {
-            len+=1;
-        }
-        return unsafe {core::str::from_utf8_unchecked(&strtab[offset..offset+len])};
-    };
+    fn lookup_symbol(&self, vaddr: usize) -> Option<(&str, usize)> {
+        let vaddr = vaddr+self.kernel_code_offset;
+        let (_sym_idx, sym) = self.symtab.iter().enumerate().find(|(_, sym)| {
+            sym.is_function() &&
+                sym.st_value <= vaddr as u64 &&
+                sym.st_value+sym.st_size > vaddr as u64
+        })?;
 
-    let symtab = shtab.iter().find(|&&sh| {sh.sh_type == goblin::elf64::section_header::SHT_SYMTAB})?;
-    let symtab = unsafe {core::slice::from_raw_parts(at_offset(symtab.sh_offset as usize).cast::<goblin::elf64::sym::Sym>(), symtab.sh_size as usize)};
-    let (sym_idx, sym) = symtab.iter().enumerate().find(|(_, sym)| {
-        sym.is_function() &&
-            sym.st_value <= vaddr as u64 &&
-            sym.st_value+sym.st_size > vaddr as u64
-    })?;
-
-    Some((get_str(sym.st_name as usize), vaddr-sym.st_value as usize))
+        Some((self.get_str(sym.st_name as usize)?, vaddr-sym.st_value as usize))
+    }
 }
+
