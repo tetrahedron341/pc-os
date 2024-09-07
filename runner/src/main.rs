@@ -1,13 +1,14 @@
 use argh::FromArgs;
 use json::JsonValue;
+use std::io::Write;
 use std::{
     path::{Path, PathBuf},
     process::Command,
 };
 
-const RUN_ARGS: &[&str] = &[
-    "-s", "-serial", "stdio", "-vga", "std", "-m", "1024", "-d", "int",
-];
+static LIMINE_CFG: &str = include_str!("../limine.cfg");
+
+const RUN_ARGS: &[&str] = &["-s", "-serial", "stdio", "-vga", "std", "-m", "1024"];
 
 const TEST_ARGS: &[&str] = &[
     "-device",
@@ -89,38 +90,59 @@ fn main() {
 fn create_disk_images(kernel_binary_path: &Path) -> PathBuf {
     let metadata = cargo_metadata();
     assert!(metadata.is_object());
-    let bootloader_manifest_path = locate_bootloader(&metadata, "bootloader").unwrap();
     let kernel_manifest_path = locate_kernel_manifest(&metadata).unwrap();
     let target_directory = target_directory(&metadata).unwrap();
+    let limine_dir = PathBuf::from(std::env::var("LIMINE_BIN_DIR").unwrap());
 
-    let mut build_cmd = Command::new(env!("CARGO"));
-    build_cmd.current_dir(bootloader_manifest_path.parent().unwrap());
-    build_cmd.arg("builder");
-    build_cmd
-        .arg("--kernel-manifest")
-        .arg(&kernel_manifest_path);
-    build_cmd.arg("--kernel-binary").arg(&kernel_binary_path);
-    build_cmd.arg("--target-dir").arg(target_directory);
-    build_cmd
-        .arg("--out-dir")
-        .arg(kernel_binary_path.parent().unwrap());
+    let image_dir = tempdir::TempDir::new("tmp-runner").unwrap();
 
-    if !build_cmd.status().unwrap().success() {
-        panic!("build failed");
-    }
+    let img = target_directory.join("kernel.img");
+    build_image(image_dir.path(), kernel_binary_path, &limine_dir, &img);
 
-    let kernel_binary_name = kernel_binary_path.file_name().unwrap().to_str().unwrap();
-    let disk_image = kernel_binary_path
-        .parent()
+    img
+}
+
+fn build_image(img_dir: &Path, kernel_binary_path: &Path, limine_bin_dir: &Path, out: &Path) {
+    let efi_boot = img_dir.join("EFI").join("BOOT");
+    std::fs::DirBuilder::new()
+        .recursive(true)
+        .create(&efi_boot)
+        .unwrap();
+    std::fs::copy(
+        limine_bin_dir.join("BOOTX64.EFI"),
+        efi_boot.join("BOOTX64.EFI"),
+    )
+    .unwrap();
+    std::fs::copy(
+        limine_bin_dir.join("limine-cd-efi.bin"),
+        img_dir.join("limine-cd-efi.bin"),
+    )
+    .unwrap();
+    std::fs::copy(
+        limine_bin_dir.join("limine-cd.bin"),
+        img_dir.join("limine-cd.bin"),
+    )
+    .unwrap();
+    std::fs::copy(
+        limine_bin_dir.join("limine.sys"),
+        img_dir.join("limine.sys"),
+    )
+    .unwrap();
+
+    let mut limine_cfg = std::fs::File::create(img_dir.join("limine.cfg")).unwrap();
+    write!(limine_cfg, "{}", LIMINE_CFG).unwrap();
+
+    std::fs::copy(kernel_binary_path, img_dir.join("kernel.elf")).unwrap();
+
+    std::process::Command::new("mkisofs")
+        .args(["-b", "limine-cd.bin"])
+        .args(["-e", "limine-cd-efi.bin"])
+        .args(["-o", out.to_str().unwrap()])
+        .arg(img_dir)
+        .spawn()
         .unwrap()
-        .join(format!("boot-uefi-{}.img", kernel_binary_name));
-    if !disk_image.exists() {
-        panic!(
-            "Disk image does not exist at {} after bootloader build",
-            disk_image.display()
-        );
-    }
-    disk_image
+        .wait()
+        .unwrap();
 }
 
 fn cargo_metadata() -> JsonValue {
@@ -132,26 +154,6 @@ fn cargo_metadata() -> JsonValue {
         .unwrap()
         .stdout;
     json::parse(std::str::from_utf8(&metadata).unwrap()).unwrap()
-}
-
-fn locate_bootloader(metadata: &JsonValue, bootloader_crate_name: &str) -> Option<PathBuf> {
-    let kernel_package = metadata["packages"]
-        .members()
-        .find(|pkg| pkg["name"] == KERNEL_CRATE_NAME)?;
-    let kernel_id = kernel_package["id"].as_str()?;
-    let kernel_resolve = metadata["resolve"]["nodes"]
-        .members()
-        .find(|r| r["id"] == kernel_id)?;
-    let dependency = kernel_resolve["deps"]
-        .members()
-        .find(|d| d["name"] == bootloader_crate_name)?;
-    let bootloader_id = dependency["pkg"].as_str()?;
-    let bootloader_package = metadata["packages"]
-        .members()
-        .find(|pkg| pkg["id"] == bootloader_id)?;
-    bootloader_package["manifest_path"]
-        .as_str()
-        .map(PathBuf::from)
 }
 
 fn locate_kernel_manifest(metadata: &JsonValue) -> Option<PathBuf> {
