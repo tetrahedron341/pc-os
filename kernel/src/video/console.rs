@@ -118,9 +118,6 @@ pub fn _print(args: core::fmt::Arguments) {
         if let Some(console) = CONSOLE.lock().as_mut() {
             use core::fmt::Write;
             console.write_fmt(args).unwrap();
-        } else {
-            log::warn!("Tried to print, console not available");
-            log::warn!("{}", args);
         }
     });
 }
