@@ -85,7 +85,9 @@ fn main() {
         return;
     }
 
-    let ovmf_path: PathBuf = std::env::var("OVMF_FD").unwrap().into();
+    let ovmf_path: PathBuf = std::env::var("OVMF_FD")
+        .unwrap_or("/usr/share/ovmf/OVMF.fd".into())
+        .into();
     let ovmf_path = ovmf_path.canonicalize().unwrap();
 
     let mut run_cmd = Command::new("qemu-system-x86_64");
@@ -152,7 +154,11 @@ fn create_disk_images(kernel_binary_path: &Path) -> PathBuf {
     let metadata = cargo_metadata();
     assert!(metadata.is_object());
     let target_directory = target_directory(&metadata).unwrap();
-    let limine_dir = PathBuf::from(std::env::var("LIMINE_BIN_DIR").unwrap());
+
+    let limine_prefix: PathBuf = std::env::var("LIMINE_PREFIX")
+        .unwrap_or("/usr/local".into())
+        .into();
+    let limine_prefix = limine_prefix.canonicalize().unwrap();
 
     let image_dir = tempdir::TempDir::new("tmp-runner").unwrap();
 
@@ -161,34 +167,34 @@ fn create_disk_images(kernel_binary_path: &Path) -> PathBuf {
         .map(std::ffi::OsStr::to_string_lossy)
         .unwrap_or("kernel".into());
     let img = target_directory.join(format!("{img_name}.img"));
-    build_image(image_dir.path(), kernel_binary_path, &limine_dir, &img);
+    build_image(image_dir.path(), kernel_binary_path, &limine_prefix, &img);
 
     img
 }
 
-fn build_image(img_dir: &Path, kernel_binary_path: &Path, limine_bin_dir: &Path, out: &Path) {
+fn build_image(img_dir: &Path, kernel_binary_path: &Path, limine_prefix: &Path, out: &Path) {
     let efi_boot = img_dir.join("EFI").join("BOOT");
     std::fs::DirBuilder::new()
         .recursive(true)
         .create(&efi_boot)
         .unwrap();
     std::fs::copy(
-        limine_bin_dir.join("BOOTX64.EFI"),
+        limine_prefix.join("share/limine/BOOTX64.EFI"),
         efi_boot.join("BOOTX64.EFI"),
     )
     .unwrap();
     std::fs::copy(
-        limine_bin_dir.join("limine-cd-efi.bin"),
+        limine_prefix.join("share/limine/limine-cd-efi.bin"),
         img_dir.join("limine-cd-efi.bin"),
     )
     .unwrap();
     std::fs::copy(
-        limine_bin_dir.join("limine-cd.bin"),
+        limine_prefix.join("share/limine/limine-cd.bin"),
         img_dir.join("limine-cd.bin"),
     )
     .unwrap();
     std::fs::copy(
-        limine_bin_dir.join("limine.sys"),
+        limine_prefix.join("share/limine/limine.sys"),
         img_dir.join("limine.sys"),
     )
     .unwrap();
@@ -204,8 +210,17 @@ fn build_image(img_dir: &Path, kernel_binary_path: &Path, limine_bin_dir: &Path,
     std::process::Command::new("mkisofs")
         .args(["-b", "limine-cd.bin"])
         .args(["-e", "limine-cd-efi.bin"])
-        .args(["-o", out.to_str().unwrap()])
+        .arg("-o")
+        .arg(out)
         .arg(img_dir)
+        .spawn()
+        .unwrap()
+        .wait()
+        .unwrap();
+
+    let limine_deploy = limine_prefix.join("bin/limine-deploy");
+    std::process::Command::new(limine_deploy)
+        .arg(out)
         .spawn()
         .unwrap()
         .wait()

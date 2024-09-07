@@ -16,8 +16,8 @@ krun = "run --bin main --target x86_64-pc_os.json -Zbuild-std=core,alloc -Zbuild
 ktest = "test --package kernel --target x86_64-pc_os.json -Zbuild-std=core,alloc -Zbuild-std-features=compiler-builtins-mem"
 
 [env]
-OVMF_FD = { value = "OVMF-pure-efi.fd", relative = true }
-LIMINE_BIN_DIR = { value = "limine", relative = true }
+OVMF_FD = { value = "/usr/share/ovmf/OVMF.fd" }
+LIMINE_PREFIX = { value = "/usr/local" }
 INITRD_DIR = { value = "initrd", relative = true }
 LIBC_DIR = { value = "libc", relative = true }
 
