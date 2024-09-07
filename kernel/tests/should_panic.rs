@@ -2,7 +2,7 @@
 #![no_main]
 
 use core::panic::PanicInfo;
-use kernel::{exit_qemu, serial_print, serial_println, QemuExitCode};
+use kernel::{serial_print, serial_println, test::exit_qemu, test::QemuExitCode};
 
 #[no_mangle] // don't mangle the name of this function
 pub extern "C" fn _start() -> ! {

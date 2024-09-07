@@ -1,12 +1,10 @@
 #![no_std]
 #![no_main]
 #![feature(custom_test_frameworks)]
-#![test_runner(kernel::test_runner)]
+#![test_runner(kernel::test::test_runner)]
 #![reexport_test_harness_main = "test_main"]
 
 extern crate alloc;
-
-use core::panic::PanicInfo;
 
 use bootloader::{entry_point, BootInfo};
 
@@ -19,10 +17,10 @@ fn main(boot_info: &'static mut BootInfo) -> ! {
     loop {}
 }
 
-#[panic_handler]
-fn panic(info: &PanicInfo) -> ! {
-    kernel::test_panic_handler(info);
-}
+// #[panic_handler]
+// fn panic(info: &PanicInfo) -> ! {
+//     kernel::test::test_panic_handler(info);
+// }
 
 #[test_case]
 fn boxed_values() {
