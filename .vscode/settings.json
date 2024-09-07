@@ -2,4 +2,5 @@
 	"files.associations": {
 		"uapi.h": "c"
 	},
+	"rust-analyzer.check.allTargets": false,
 }
