@@ -108,7 +108,7 @@ fn main() {
                 println!("Tests passed successfully");
                 0
             } else {
-                println!("\nTests failed: status code {}", code);
+                println!("\nTests failed: status code {code}");
                 struct PrintableFilter<T: Write>(T);
                 impl<T: Write> Write for PrintableFilter<T> {
                     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
@@ -200,7 +200,7 @@ fn build_image(img_dir: &Path, kernel_binary_path: &Path, limine_prefix: &Path, 
     .unwrap();
 
     let mut limine_cfg = std::fs::File::create(img_dir.join("limine.cfg")).unwrap();
-    write!(limine_cfg, "{}", LIMINE_CFG).unwrap();
+    write!(limine_cfg, "{LIMINE_CFG}").unwrap();
 
     std::fs::copy(kernel_binary_path, img_dir.join("kernel.elf")).unwrap();
 
@@ -242,7 +242,7 @@ fn make_initrd() -> PathBuf {
 fn make_libc() {
     let libc_dir = PathBuf::from(std::env::var("LIBC_DIR").unwrap());
     std::process::Command::new("make")
-        .current_dir(&libc_dir)
+        .current_dir(libc_dir)
         .spawn()
         .unwrap()
         .wait()
