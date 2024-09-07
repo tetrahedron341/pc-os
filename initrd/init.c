@@ -17,7 +17,7 @@ void _start()
     char text[] = "Hello from userland C!\n";
     print(text, sizeof text);
 
-    for (int seconds = 0;; seconds++)
+    for (int seconds = 0; seconds <= 5; seconds++)
     {
         char numbuf[8];
         size_t numlen = itoa(seconds, numbuf, 8);
