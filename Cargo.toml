@@ -1,7 +1,7 @@
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [workspace]
 resolver = "2"
-members = ["kernel", "runner", "kernel-uapi"]
+members = ["kernel", "kernel-uapi", "libstd", "init"]
 
 # Force dev profile to be identical to release for the uapi
 [profile.dev.package.kernel-uapi]

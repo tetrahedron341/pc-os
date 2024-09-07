@@ -1,3 +1,5 @@
+/* ENTRY(_start) */
+
 SECTIONS
 {
     . = 0x10000000;                 /* relocate to address 0x1000_0000 */

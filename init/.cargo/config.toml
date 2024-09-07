@@ -1,0 +1,6 @@
+[build]
+target = "../platforms/x86_64-unknown-pc_os.json"
+
+[unstable]
+build-std = ["core"]
+build-std-features = ["compiler-builtins-mem"]
