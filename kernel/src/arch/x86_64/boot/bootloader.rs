@@ -26,17 +26,13 @@ cfg_if::cfg_if! {
 fn initialize(boot_info: &'static mut bootloader::BootInfo) -> crate::init::InitServices {
     super::interrupts::init_idt();
     super::gdt::init();
-    let mut paging_service = unsafe {
-        crate::memory::init(
+    unsafe {
+        super::memory::init(
             boot_info.recursive_index.into_option().unwrap(),
             &boot_info.memory_regions,
         )
     };
-    crate::allocator::init_heap(
-        &mut paging_service.mapper,
-        &mut paging_service.frame_allocator,
-    )
-    .unwrap();
+    crate::allocator::init_heap().unwrap();
     super::syscall::init();
 
     let modules = boot_info
@@ -64,7 +60,7 @@ fn initialize(boot_info: &'static mut bootloader::BootInfo) -> crate::init::Init
 
 unsafe fn load_module(module_desc: bootloader::boot_info::Module) -> BootModule {
     let ptr =
-        crate::memory::phys_to_virt(x86_64::PhysAddr::new(module_desc.phys_addr)).as_mut_ptr();
+        super::memory::phys_to_virt(x86_64::PhysAddr::new(module_desc.phys_addr)).as_mut_ptr();
     BootModule {
         name: core::str::from_utf8(&module_desc.name)
             .unwrap()
