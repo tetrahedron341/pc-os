@@ -1,3 +1,5 @@
+use crate::process::ProcessState;
+
 use super::cpu::{this_cpu, Registers};
 use pic8259::ChainedPics;
 use x86_64::structures::idt::*;
@@ -117,6 +119,7 @@ extern "x86-interrupt" fn timer_interrupt_handler(_stack_frame: InterruptStackFr
     x86_64::instructions::interrupts::without_interrupts(|| {
         let cpu = this_cpu();
         if let Some(proc) = cpu.try_take_process() {
+            proc.state = ProcessState::Runnable;
             cpu.return_from_process(proc)
         }
     });
