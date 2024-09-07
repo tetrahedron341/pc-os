@@ -6,19 +6,12 @@ edition = "2018"
 build = "build.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[workspace]
+members = ["boot"]
 
-[package.metadata.bootimage]
-test-args = [
-    "-device",
-    "isa-debug-exit,iobase=0xf4,iosize=0x04",
-    "-serial",
-    "none",
-    "-display",
-    "none",
-]
-test-success-exit-code = 33
-test-timeout = 300
-run-args = ["-serial", "stdio"]
+[package.metadata.bootloader]
+map-page-table-recursively = true
+minimum-framebuffer-height = 600
 
 [dependencies]
 bootloader = "0.10.9"

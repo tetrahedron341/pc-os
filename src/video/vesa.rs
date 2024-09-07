@@ -45,8 +45,10 @@ impl Screen {
         }
         let color = u32::to_be_bytes(color.as_argb_u32());
         let offset = self.calculate_pixel_index(x, y);
-        if let pix @ [_, _, _, _] = &mut self.framebuffer.buffer_mut()[offset..offset + 4] {
-            pix.copy_from_slice(&color);
+        if let [r, g, b, _a] = &mut self.framebuffer.buffer_mut()[offset..offset + 4] {
+            *r = color[1];
+            *g = color[2];
+            *b = color[3];
         }
     }
 
@@ -63,9 +65,9 @@ impl Screen {
         F: FnMut(usize, usize, &Self) -> C,
         C: Color,
     {
-        for row in y..y + height {
-            for col in x..x + width {
-                self.draw_pixel(col, row, colors(row, col, self));
+        for py in y..y + height {
+            for px in x..x + width {
+                self.draw_pixel(px, py, colors(px, py, self));
             }
         }
     }
@@ -75,7 +77,7 @@ impl Screen {
             return None;
         }
         let offset = self.calculate_pixel_index(x, y);
-        if let [a, r, g, b] = self.framebuffer.buffer()[offset..offset + 4] {
+        if let [r, g, b, a] = self.framebuffer.buffer()[offset..offset + 4] {
             Some(u32::from_be_bytes([a, r, g, b]))
         } else {
             None
