@@ -23,8 +23,10 @@ static FRAMEBUFFER_REQUEST: limine::LimineFramebufferRequest =
 
 static RSDP_REQUEST: limine::LimineRsdpRequest = limine::LimineRsdpRequest::new(0);
 
-static KERNEL_ADDRESS_REQUEST: limine::LimineKernelAddressRequest = limine::LimineKernelAddressRequest::new(0);
-static KERNEL_FILE_REQUEST: limine::LimineKernelFileRequest = limine::LimineKernelFileRequest::new(0);
+static KERNEL_ADDRESS_REQUEST: limine::LimineKernelAddressRequest =
+    limine::LimineKernelAddressRequest::new(0);
+static KERNEL_FILE_REQUEST: limine::LimineKernelFileRequest =
+    limine::LimineKernelFileRequest::new(0);
 
 // With the HHDM feature on, 4-level paging, and KASLR enabled, our higher half looks like:
 //
@@ -48,16 +50,36 @@ fn _start() -> ! {
     x86_64::instructions::interrupts::disable();
     enable_simd();
     let kernel_start = crate::panic::unwind::KERNEL_START.get_or_init(|| {
-        KERNEL_ADDRESS_REQUEST.get_response().get().unwrap().virtual_base as usize
+        KERNEL_ADDRESS_REQUEST
+            .get_response()
+            .get()
+            .unwrap()
+            .virtual_base as usize
     });
     crate::serial_println!("KERNEL_START: {kernel_start:#X}");
     crate::serial_println!("SERIAL_LOG_MAX: {SERIAL_LOG_MAX:?}");
     crate::panic::unwind::KERNEL_LEN.init_once(|| {
-        KERNEL_FILE_REQUEST.get_response().get().unwrap().kernel_file.get().unwrap().length as usize
+        KERNEL_FILE_REQUEST
+            .get_response()
+            .get()
+            .unwrap()
+            .kernel_file
+            .get()
+            .unwrap()
+            .length as usize
     });
 
     crate::panic::unwind::KERNEL_ELF.init_once(|| unsafe {
-        let ptr = KERNEL_FILE_REQUEST.get_response().get().unwrap().kernel_file.get().unwrap().base.as_ptr().unwrap() as *const _;
+        let ptr = KERNEL_FILE_REQUEST
+            .get_response()
+            .get()
+            .unwrap()
+            .kernel_file
+            .get()
+            .unwrap()
+            .base
+            .as_ptr()
+            .unwrap() as *const _;
         &*ptr
     });
     arch::x86_64::gdt::init();
@@ -176,7 +198,7 @@ fn enumerate_acpi_tables() {
             )
             .unwrap();
             acpi::PhysicalMapping::new(physical_address, vaddr, size, size, *self)
-        } 
+        }
         fn unmap_physical_region<T>(_region: &acpi::PhysicalMapping<Self, T>) {}
     }
 
@@ -251,7 +273,7 @@ fn enumerate_pci_devices(pci: &acpi::PciConfigRegions) {
             }
             _ => log::debug!("{cfg:#X?}"),
         }
-            
+
         if class == 0x6 && subclass == 0x4 {
             // Pci-to-Pci bridge
             let cfg = unsafe { core::mem::transmute::<_, &HeaderType1>(cfg) };

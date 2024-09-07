@@ -8,7 +8,7 @@ rustflags = [
     "-C",
     "code-model=kernel",
     "-C",
-    "force-frame-pointers=y"
+    "force-frame-pointers=y",
 ]
 
 [alias]
