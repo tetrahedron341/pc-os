@@ -21,11 +21,18 @@ const RUN_ARGS: &[&str] = &[
     "-drive",
     "file=disk.img,format=raw",
     "-cpu",
-    "qemu64", // "-no-reboot",
-              // "-no-shutdown",
-              // "-d",
-              // "int",
-              // "-S",
+    "qemu64",
+    // "-no-reboot",
+    // "-no-shutdown",
+    "-d",
+    "int",
+    "-D",
+    "qemu.log",
+    // "-S",
+    // "-display",
+    // "none",
+    "-device",
+    "e1000",
 ];
 
 const TEST_ARGS: &[&str] = &[
