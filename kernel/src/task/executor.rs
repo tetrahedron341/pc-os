@@ -18,7 +18,8 @@ impl Executor {
         }
     }
 
-    pub fn spawn(&mut self, task: Task) {
+    pub fn spawn(&mut self, f: impl core::future::Future<Output = ()> + Send + 'static) {
+        let task = Task::new(f);
         let id = task.id;
         if self.tasks.insert(task.id, task).is_some() {
             panic!("Tried to spawn two tasks with same ID")
@@ -53,6 +54,7 @@ impl Executor {
         }
     }
 
+    /// Let the executor take control of this CPU core.
     pub fn run(&mut self) -> ! {
         loop {
             self.run_ready_tasks();
