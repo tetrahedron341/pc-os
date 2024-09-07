@@ -15,9 +15,14 @@ extern "C" {
 }
 
 pub fn init() {
-    use x86_64::{VirtAddr, registers::model_specific::{LStar, Star, Efer, EferFlags}};
+    use x86_64::{
+        registers::model_specific::{Efer, EferFlags, LStar, Star},
+        VirtAddr,
+    };
     // Enable the SYSCALL/SYSRET instructions
-    unsafe { Efer::update(|f| *f = *f | EferFlags::SYSTEM_CALL_EXTENSIONS); }
+    unsafe {
+        Efer::update(|f| *f |= EferFlags::SYSTEM_CALL_EXTENSIONS);
+    }
     // Load the syscall function pointer into IA32_LSTAR
     LStar::write(VirtAddr::new(_syscall_handler as *const () as usize as u64));
 
@@ -42,12 +47,14 @@ extern "C" fn syscall_handler() {
             r14 = out(reg) r14,
             r15 = out(reg) r15,
         );
-        (r14,r15 as usize as *mut u8)
+        (r14, r15 as usize as *mut u8)
     };
 
     let r = syscalls::syscall_dispatch(op, ptr);
-    unsafe {asm!(
-        "mov r14, {r}",
-        r = in(reg) r
-    )}
+    unsafe {
+        asm!(
+            "mov r14, {r}",
+            r = in(reg) r
+        )
+    }
 }

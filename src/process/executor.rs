@@ -1,8 +1,8 @@
 use super::Process;
 use super::Registers;
 use alloc::collections::VecDeque;
+use x86_64::structures::paging::{Mapper, Page, PageTableFlags, Size4KiB};
 use x86_64::VirtAddr;
-use x86_64::structures::paging::{Mapper, Page, Size4KiB, PageTableFlags};
 
 pub struct Executor {
     procs: VecDeque<Process>,
@@ -11,7 +11,11 @@ pub struct Executor {
 }
 
 impl Executor {
-    pub fn new(init_proc: Process, process_start: VirtAddr, paging_service: crate::memory::PagingService) -> Self {
+    pub fn new(
+        init_proc: Process,
+        process_start: VirtAddr,
+        paging_service: crate::memory::PagingService,
+    ) -> Self {
         let mut s = Executor {
             procs: {
                 let mut v = VecDeque::new();
@@ -19,7 +23,7 @@ impl Executor {
                 v
             },
             process_start,
-            paging_service
+            paging_service,
         };
         s.map_current_process();
         s
@@ -42,7 +46,8 @@ impl Executor {
 
     fn unmap_current_process(&mut self) {
         for p in 0..self.current_process().code_len {
-            let page: Page<Size4KiB> = Page::containing_address(self.process_start + p as u64*4096);
+            let page: Page<Size4KiB> =
+                Page::containing_address(self.process_start + p as u64 * 4096);
             self.paging_service.mapper.unmap(page).unwrap().1.flush();
         }
     }
@@ -50,18 +55,41 @@ impl Executor {
     fn map_current_process(&mut self) {
         // Map the code frames
         for (p, frame) in self.procs.front().unwrap().frames.iter().enumerate() {
-            let page: Page<Size4KiB> = Page::containing_address(self.process_start + p as u64*4096);
-            let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::USER_ACCESSIBLE;
+            let page: Page<Size4KiB> =
+                Page::containing_address(self.process_start + p as u64 * 4096);
+            let flags = PageTableFlags::PRESENT
+                | PageTableFlags::WRITABLE
+                | PageTableFlags::USER_ACCESSIBLE;
             unsafe {
-                self.paging_service.mapper.map_to(page, *frame, flags, &mut self.paging_service.frame_allocator).unwrap().flush();
+                self.paging_service
+                    .mapper
+                    .map_to(
+                        page,
+                        *frame,
+                        flags,
+                        &mut self.paging_service.frame_allocator,
+                    )
+                    .unwrap()
+                    .flush();
             }
         }
         // Map the stack frames
         for (p, frame) in self.procs.front().unwrap().stack_frames.iter().enumerate() {
-            let page: Page<Size4KiB> = Page::containing_address(super::STACK_TOP - p as u64*4096);
-            let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::USER_ACCESSIBLE;
+            let page: Page<Size4KiB> = Page::containing_address(super::STACK_TOP - p as u64 * 4096);
+            let flags = PageTableFlags::PRESENT
+                | PageTableFlags::WRITABLE
+                | PageTableFlags::USER_ACCESSIBLE;
             unsafe {
-                self.paging_service.mapper.map_to(page, *frame, flags, &mut self.paging_service.frame_allocator).unwrap().flush();
+                self.paging_service
+                    .mapper
+                    .map_to(
+                        page,
+                        *frame,
+                        flags,
+                        &mut self.paging_service.frame_allocator,
+                    )
+                    .unwrap()
+                    .flush();
             }
         }
     }
@@ -76,7 +104,7 @@ impl Executor {
         self.map_current_process();
     }
 
-    /// Suspends the current process and all of its state, 
+    /// Suspends the current process and all of its state,
     pub fn suspend_current_process(&mut self, registers: Registers) {
         self.current_process_mut().registers = registers;
         self.next_process();
@@ -107,9 +135,12 @@ impl Executor {
         core::hint::unreachable_unchecked()
     }
 
-    /// Enter user mode. Jumps into the currently running process in user mode. *This call will not return.*
+    /// Enter user mode. Jumps into the currently running process in user mode. *This call will not return to the caller.*
     pub fn run(&mut self) -> ! {
-        let Process { registers: Registers {rip, rsp, ..}, ..} = *self.current_process();
+        let Process {
+            registers: Registers { rip, rsp, .. },
+            ..
+        } = *self.current_process();
         unsafe {
             self.context_switch(rip, rsp);
         }

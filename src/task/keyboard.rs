@@ -1,6 +1,6 @@
+use crate::println;
 use conquer_once::spin::OnceCell;
 use crossbeam_queue::ArrayQueue;
-use crate::println;
 use futures_util::task::AtomicWaker;
 
 static SCANCODE_QUEUE: OnceCell<ArrayQueue<u8>> = OnceCell::uninit();
@@ -8,7 +8,7 @@ static WAKER: AtomicWaker = AtomicWaker::new();
 
 pub(crate) fn add_scancode(scancode: u8) {
     if let Ok(queue) = SCANCODE_QUEUE.try_get() {
-        if let Err(_) = queue.push(scancode) {
+        if queue.push(scancode).is_err() {
             println!("WARNING: Scancode queue full; dropping keyboard input");
         } else {
             WAKER.wake();
@@ -19,29 +19,30 @@ pub(crate) fn add_scancode(scancode: u8) {
 }
 
 pub struct ScancodeStream {
-    _private: ()
+    _private: (),
 }
 
 impl ScancodeStream {
     pub fn new() -> Self {
-        SCANCODE_QUEUE.try_init_once(|| ArrayQueue::new(1000))
+        SCANCODE_QUEUE
+            .try_init_once(|| ArrayQueue::new(1000))
             .expect("`ScancodeStream::new` can only be called once");
-        ScancodeStream {
-            _private: ()
-        }
+        ScancodeStream { _private: () }
     }
 }
 
 use core::pin::Pin;
-use core::task::{Poll, Context};
+use core::task::{Context, Poll};
 
 impl futures_util::stream::Stream for ScancodeStream {
     type Item = u8;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<u8>> {
-        let queue = SCANCODE_QUEUE.try_get().expect("SCANCODE_QUEUE not initialized");
+        let queue = SCANCODE_QUEUE
+            .try_get()
+            .expect("SCANCODE_QUEUE not initialized");
         if let Ok(scancode) = queue.pop() {
-            return Poll::Ready(Some(scancode))
+            return Poll::Ready(Some(scancode));
         }
 
         WAKER.register(cx.waker());
@@ -56,9 +57,9 @@ impl futures_util::stream::Stream for ScancodeStream {
 }
 
 pub async fn print_keypresses() {
-    use pc_keyboard::{Keyboard, DecodedKey, layouts::Us104Key, ScancodeSet1, HandleControl};
-    use futures_util::StreamExt;
     use crate::print;
+    use futures_util::StreamExt;
+    use pc_keyboard::{layouts::Us104Key, DecodedKey, HandleControl, Keyboard, ScancodeSet1};
 
     let mut scancodes = ScancodeStream::new();
     let mut keyboard = Keyboard::new(Us104Key, ScancodeSet1, HandleControl::Ignore);

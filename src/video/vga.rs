@@ -62,29 +62,19 @@ impl Style {
     }
 
     pub fn from_colors(fg_color: FgColor, bg_color: BgColor, blink: bool) -> Self {
-        Style(
-            if blink {0b1000_0000} else {0} |
-            ((bg_color as u8) << 4) |
-            (fg_color as u8)
-        )
+        Style(if blink { 0b1000_0000 } else { 0 } | ((bg_color as u8) << 4) | (fg_color as u8))
     }
 
     pub fn with_fg_color(self, fg_color: FgColor) -> Self {
-        Style(
-            (self.0 & 0b1111_0000) | fg_color as u8
-        )
+        Style((self.0 & 0b1111_0000) | fg_color as u8)
     }
 
     pub fn with_bg_color(self, bg_color: BgColor) -> Self {
-        Style(
-            (self.0 & 0b1000_1111) | ((bg_color as u8) << 4)
-        )
+        Style((self.0 & 0b1000_1111) | ((bg_color as u8) << 4))
     }
 
     pub fn with_blink(self, blink: bool) -> Self {
-        Style(
-            (self.0 & 0b0111_1111) | (if blink {0b1000_000} else {0})
-        )
+        Style((self.0 & 0b0111_1111) | (if blink { 0b1000_0000 } else { 0 }))
     }
 }
 
@@ -100,13 +90,13 @@ const BUFFER_HEIGHT: usize = 25;
 
 #[repr(transparent)]
 pub struct VgaBuffer {
-    pub chars: [[volatile::Volatile<ScreenChar>; BUFFER_WIDTH]; BUFFER_HEIGHT]
+    pub chars: [[volatile::Volatile<ScreenChar>; BUFFER_WIDTH]; BUFFER_HEIGHT],
 }
 
 pub struct Writer {
     pub column_position: usize,
     pub style: Style,
-    pub buffer: &'static mut VgaBuffer
+    pub buffer: &'static mut VgaBuffer,
 }
 
 impl Writer {
@@ -123,9 +113,11 @@ impl Writer {
 
                 let style = self.style;
 
-                self.buffer.chars[row][col].write(ScreenChar {char: byte, style});
+                self.buffer.chars[row][col].write(ScreenChar { char: byte, style });
                 self.column_position += 1;
-                if self.column_position < BUFFER_WIDTH {self.move_cursor(row, col+1)};
+                if self.column_position < BUFFER_WIDTH {
+                    self.move_cursor(row, col + 1)
+                };
             }
         }
     }
@@ -134,7 +126,7 @@ impl Writer {
         for byte in s.bytes() {
             match byte {
                 0x20..=0x7e | b'\n' => self.write_byte(byte),
-                _ => self.write_byte(0xfe)
+                _ => self.write_byte(0xfe),
             }
         }
     }
@@ -143,16 +135,19 @@ impl Writer {
         for row in 1..BUFFER_HEIGHT {
             for col in 0..BUFFER_WIDTH {
                 let char = self.buffer.chars[row][col].read();
-                self.buffer.chars[row-1][col].write(char);
+                self.buffer.chars[row - 1][col].write(char);
             }
         }
-        self.clear_row(BUFFER_HEIGHT-1);
+        self.clear_row(BUFFER_HEIGHT - 1);
         self.column_position = 0;
         self.move_cursor(BUFFER_HEIGHT - 1, 0);
     }
 
     pub fn clear_row(&mut self, row: usize) {
-        let blank = ScreenChar {char: b' ', style: self.style};
+        let blank = ScreenChar {
+            char: b' ',
+            style: self.style,
+        };
         for col in 0..BUFFER_WIDTH {
             self.buffer.chars[row][col].write(blank);
         }
@@ -162,13 +157,13 @@ impl Writer {
         unsafe {
             let mut addrp = x86_64::instructions::port::Port::<u8>::new(0x3D4);
             let mut datap = x86_64::instructions::port::Port::<u8>::new(0x3D5);
-            addrp.write(0x0A);                                  //outb(0x3D4, 0x0A);
+            addrp.write(0x0A); //outb(0x3D4, 0x0A);
             let cursor_start = (datap.read() & 0xC0) | 13;
-            datap.write(cursor_start);                          //outb(0x3D5, (inb(0x3D5) & 0xC0) | cursor_start);
-        
-            addrp.write(0x0B);                                  //outb(0x3D4, 0x0B);
+            datap.write(cursor_start); //outb(0x3D5, (inb(0x3D5) & 0xC0) | cursor_start);
+
+            addrp.write(0x0B); //outb(0x3D4, 0x0B);
             let cursor_end = (datap.read() & 0xE0) | 15;
-            datap.write(cursor_end);                            //outb(0x3D5, (inb(0x3D5) & 0xE0) | cursor_end);
+            datap.write(cursor_end); //outb(0x3D5, (inb(0x3D5) & 0xE0) | cursor_end);
         }
     }
 
@@ -187,12 +182,12 @@ impl Writer {
         unsafe {
             let mut addrp = x86_64::instructions::port::Port::<u8>::new(0x3D4);
             let mut datap = x86_64::instructions::port::Port::<u8>::new(0x3D5);
-            let pos = row * 80 + col;                    // uint16_t pos = y * VGA_WIDTH + x;
-     
-            addrp.write(0x0F);                                  // outb(0x3D4, 0x0F);
-            datap.write((pos & 0xff) as u8);                    // outb(0x3D5, (uint8_t) (pos & 0xFF));
-            addrp.write(0x0E);                                  // outb(0x3D4, 0x0E);
-            datap.write(((pos >> 8) & 0xff) as u8);             // outb(0x3D5, (uint8_t) ((pos >> 8) & 0xFF));
+            let pos = row * 80 + col; // uint16_t pos = y * VGA_WIDTH + x;
+
+            addrp.write(0x0F); // outb(0x3D4, 0x0F);
+            datap.write((pos & 0xff) as u8); // outb(0x3D5, (uint8_t) (pos & 0xFF));
+            addrp.write(0x0E); // outb(0x3D4, 0x0E);
+            datap.write(((pos >> 8) & 0xff) as u8); // outb(0x3D5, (uint8_t) ((pos >> 8) & 0xFF));
         }
     }
 }
@@ -214,13 +209,13 @@ pub fn _print(args: fmt::Arguments) {
 
 #[test_case]
 fn test_println_single() {
-    println!("test_println_single output")
+    crate::println!("test_println_single output")
 }
 
 #[test_case]
 fn test_println_many() {
     for _ in 0..200 {
-        println!("test_println_many output")
+        crate::println!("test_println_many output")
     }
 }
 

@@ -1,6 +1,8 @@
-use x86_64::structures::paging::{PageTable, RecursivePageTable, FrameAllocator, Size4KiB, PhysFrame};
-use x86_64::{VirtAddr, PhysAddr};
 use bootloader::bootinfo::{MemoryMap, MemoryRegionType};
+use x86_64::structures::paging::{
+    FrameAllocator, PageTable, PhysFrame, RecursivePageTable, Size4KiB,
+};
+use x86_64::{PhysAddr, VirtAddr};
 
 pub struct BootInfoFrameAllocator {
     memory_map: &'static MemoryMap,
@@ -8,7 +10,7 @@ pub struct BootInfoFrameAllocator {
 }
 
 impl BootInfoFrameAllocator {
-    pub unsafe fn init(memory_map: &'static MemoryMap) -> Self {
+    unsafe fn init(memory_map: &'static MemoryMap) -> Self {
         BootInfoFrameAllocator {
             memory_map,
             next: 0,
@@ -17,10 +19,8 @@ impl BootInfoFrameAllocator {
 
     fn usable_frames(&self) -> impl Iterator<Item = PhysFrame> {
         let regions = self.memory_map.iter();
-        let usable_regions = regions
-            .filter(|r| r.region_type == MemoryRegionType::Usable);
-        let addr_ranges = usable_regions
-            .map(|r| r.range.start_addr() .. r.range.end_addr());
+        let usable_regions = regions.filter(|r| r.region_type == MemoryRegionType::Usable);
+        let addr_ranges = usable_regions.map(|r| r.range.start_addr()..r.range.end_addr());
         let frame_addresses = addr_ranges.flat_map(|r| r.step_by(4096));
 
         frame_addresses.map(|a| PhysFrame::containing_address(PhysAddr::new(a)))
@@ -35,20 +35,30 @@ unsafe impl FrameAllocator<Size4KiB> for BootInfoFrameAllocator {
     }
 }
 
+#[non_exhaustive]
 pub struct PagingService {
     pub mapper: RecursivePageTable<'static>,
     pub frame_allocator: BootInfoFrameAllocator,
-    _private: (),
 }
 
-pub unsafe fn init(recursive_page_table_addr: VirtAddr, memory_map: &'static bootloader::bootinfo::MemoryMap) -> PagingService {
+/// Set up the kernel frame allocator and page mapper
+///
+/// # Safety
+/// `recursive_page_table_addr` must point to an actual level 4 page table.
+/// `memory_map` must be a valid memory map that does not include any in-use memory pages.
+///
+/// # Panics
+/// If `recursive_page_table_addr` is not the active page table, or is not a recursive page table as specified in [`x86_64::structures::paging::RecursivePageTable::new`], then this function will panic.
+pub unsafe fn init(
+    recursive_page_table_addr: VirtAddr,
+    memory_map: &'static bootloader::bootinfo::MemoryMap,
+) -> PagingService {
     let lvl_4_page_table = active_level_4_table(recursive_page_table_addr);
     let mapper = RecursivePageTable::new(lvl_4_page_table).unwrap();
     let frame_allocator = BootInfoFrameAllocator::init(memory_map);
     PagingService {
         mapper,
         frame_allocator,
-        _private: ()
     }
 }
 
