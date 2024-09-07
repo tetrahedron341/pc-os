@@ -32,7 +32,6 @@ log = { version = "0.4", default-features = false }
 goblin = { version = "0.2.3", default-features = false, features = ["elf64"] }
 acpi = "4.0.0"
 bare-io = { version = "0.2.1", features = ["alloc", "nightly"] }
-libkernel = { path = "../libkernel" }
 
 [[test]]
 name = "should_panic"
@@ -41,3 +40,6 @@ harness = false
 [[test]]
 name = "stack_overflow"
 harness = false
+
+[build-dependencies]
+bindgen = "0.59.1"
