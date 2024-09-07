@@ -13,7 +13,6 @@ dynamic-range-start = 0x0000_8000_0000_0000    # 0xFFFF_8000_0000_0000
 dynamic-range-end = 0x0000_DFFF_FFFF_F000      # 0xFFFF_DFFF_FFFF_F000
 
 [dependencies]
-bootloader = { git = "https://github.com/rust-osdev/bootloader", rev = "ac46d0455b41c11e5d316348d068df1c495ce0af", optional = true }
 kernel-uapi = { path = "../kernel-uapi", default-features = false }
 volatile = "0.2.6"
 lazy_static = { version = "*", features = ["spin_no_std"] }
@@ -46,7 +45,6 @@ x86_64 = "0.14.6"
 
 [features]
 default = ["limine_bootloader"]
-phil_opp_bootloader = ["bootloader"]
 limine_bootloader = ["limine"]
 
 [[bin]]
