@@ -74,7 +74,7 @@ img: kernel initrd (_make_img kernel_path initrd_path)
 ovmf_path := env_var_or_default("OVMF_PATH", "/usr/share/ovmf/OVMF.fd")
 qemu := env_var_or_default("QEMU", "qemu-system-x86_64")
 qemu_args := env_var_or_default("QEMU_ARGS", "")
-qemu_run_args := "-s -serial stdio -vga std -m 256M -machine q35 -cpu qemu64 -d int -D qemu.log -display none -device rtl8139" + qemu_args
+qemu_run_args := "-s -serial stdio -vga std -m 256M -machine q35 -cpu qemu64 -d int -D qemu.log -device rtl8139" + qemu_args
 qemu_test_args := "-device isa-debug-exit,iobase=0xf4,iosize=0x04 -s -serial stdio -vga std -m 256M -machine q35 -cpu qemu64 -d int -D qemu.log -display none -device rtl8139" + qemu_args
 run disk_image *args: img 
     {{qemu}} \
