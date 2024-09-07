@@ -29,6 +29,7 @@ impl Cpu {
     }
 
     pub fn run_process(&mut self, proc: &mut Process) {
+        proc.space.load();
         let load = proc.context;
         proc.state = ProcessState::Running;
         self.process = Some(NonNull::from(proc));
