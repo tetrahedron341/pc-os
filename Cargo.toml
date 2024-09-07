@@ -14,7 +14,7 @@ map-page-table-recursively = true
 minimum-framebuffer-height = 600
 
 [dependencies]
-bootloader = "0.10.9"
+bootloader = { git = "https://github.com/bengdahl/bootloader" }
 volatile = "0.2.6"
 lazy_static = { version = "*", features = ["spin_no_std"] }
 spin = "0.9"
