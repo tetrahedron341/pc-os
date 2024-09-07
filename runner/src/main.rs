@@ -134,11 +134,36 @@ fn build_image(img_dir: &Path, kernel_binary_path: &Path, limine_bin_dir: &Path,
 
     std::fs::copy(kernel_binary_path, img_dir.join("kernel.elf")).unwrap();
 
+    let initrd = make_initrd();
+    std::fs::copy(initrd, img_dir.join("initrd")).unwrap();
+
     std::process::Command::new("mkisofs")
         .args(["-b", "limine-cd.bin"])
         .args(["-e", "limine-cd-efi.bin"])
         .args(["-o", out.to_str().unwrap()])
         .arg(img_dir)
+        .spawn()
+        .unwrap()
+        .wait()
+        .unwrap();
+}
+
+fn make_initrd() -> PathBuf {
+    make_libc();
+    let initrd_dir = PathBuf::from(std::env::var("INITRD_DIR").unwrap());
+    std::process::Command::new("make")
+        .current_dir(&initrd_dir)
+        .spawn()
+        .unwrap()
+        .wait()
+        .unwrap();
+    initrd_dir.join("initrd.tar")
+}
+
+fn make_libc() {
+    let libc_dir = PathBuf::from(std::env::var("LIBC_DIR").unwrap());
+    std::process::Command::new("make")
+        .current_dir(&libc_dir)
         .spawn()
         .unwrap()
         .wait()
