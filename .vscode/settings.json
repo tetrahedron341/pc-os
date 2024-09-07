@@ -1,3 +1,7 @@
 {
     "rust-analyzer.checkOnSave.allTargets": false,
+    "rust-analyzer.cargo.unsetTest": [
+        "core",
+        "pc-os"
+    ]
 }
