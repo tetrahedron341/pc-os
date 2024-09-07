@@ -33,6 +33,7 @@ pub mod syscall;
 pub mod task;
 pub mod test;
 pub mod video;
+pub mod util;
 
 #[cfg(test)]
 crate::kernel_main!(test::TestMainBuilder::new(test_main).build());

@@ -1,9 +1,10 @@
 use core::arch::asm;
 
+use crate::util::Align16;
 use kernel_uapi::syscall::{Syscall, SyscallResult};
 
-static mut STACK: [u8; 32 * 1024] = [0; 32 * 1024];
-static mut SYSCALL_RSP: *const u8 = unsafe { STACK.as_ptr().add(STACK.len()) };
+static mut STACK: Align16<[u8; 32 * 1024]> = Align16([0; 32 * 1024]);
+static mut SYSCALL_RSP: *const u8 = unsafe { STACK.0.as_ptr().add(STACK.0.len()) };
 static mut RETURN_RSP: *const u8 = core::ptr::null();
 
 #[naked]
