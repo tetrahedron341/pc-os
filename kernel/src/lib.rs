@@ -27,6 +27,7 @@ pub mod file;
 pub mod init;
 pub mod log;
 mod panic;
+pub mod pci;
 pub mod process;
 pub mod serial;
 pub mod syscall;

@@ -161,26 +161,140 @@ fn get_modules() -> Vec<BootModule> {
     modules
 }
 
-#[allow(unused)]
 fn enumerate_acpi_tables() {
     #[derive(Clone, Copy)]
     struct AcpiHandler {}
 
     impl acpi::AcpiHandler for AcpiHandler {
-        unsafe fn map_physical_region<T>(&self, physical_address: usize, size: usize) -> acpi::PhysicalMapping<Self, T> {
-            let vaddr = core::ptr::NonNull::new(phys_to_virt(PhysAddr::new(physical_address as u64)).as_mut_ptr()).unwrap();
+        unsafe fn map_physical_region<T>(
+            &self,
+            physical_address: usize,
+            size: usize,
+        ) -> acpi::PhysicalMapping<Self, T> {
+            let vaddr = core::ptr::NonNull::new(
+                phys_to_virt(PhysAddr::new(physical_address as u64)).as_mut_ptr(),
+            )
+            .unwrap();
             acpi::PhysicalMapping::new(physical_address, vaddr, size, size, *self)
         } 
-        fn unmap_physical_region<T>(region: &acpi::PhysicalMapping<Self, T>) {
-            
-        }
+        fn unmap_physical_region<T>(_region: &acpi::PhysicalMapping<Self, T>) {}
     }
 
     let rsdp_response = RSDP_REQUEST.get_response().get().unwrap();
     let phys_offset = get_phys_mem_offset().as_u64() as usize;
-    let tables = unsafe {acpi::AcpiTables::from_rsdp(AcpiHandler {}, rsdp_response.address.as_ptr().unwrap() as usize - phys_offset)}.unwrap();
-    let platform = tables.platform_info().unwrap();
-    let acpi::platform::interrupt::InterruptModel::Apic(apic) = platform.interrupt_model else {return};
+    let tables = unsafe {
+        acpi::AcpiTables::from_rsdp(
+            AcpiHandler {},
+            rsdp_response.address.as_ptr().unwrap() as usize - phys_offset,
+        )
+    }
+    .unwrap();
+
+    let pci = acpi::PciConfigRegions::new(&tables).unwrap();
+    log::trace!("{pci:#X?}");
+    enumerate_pci_devices(&pci);
+}
+
+fn enumerate_pci_devices(pci: &acpi::PciConfigRegions) {
+    use crate::pci::{BaseHeader, HeaderType1};
+    use acpi::PciConfigRegions as Pci;
+
+    fn check_bus(pci: &Pci, bus: u8) {
+        log::trace!("check_bus({bus})");
+        for dev in 0..32 {
+            check_dev(pci, bus, dev);
+        }
+    }
+    fn check_dev(pci: &Pci, bus: u8, dev: u8) {
+        log::trace!("check_dev({bus}, {dev})");
+        let Some(cfg) = pci.physical_address(0, bus, dev, 0) else {return};
+        let cfg_ptr = phys_to_virt(PhysAddr::new(cfg)).as_ptr::<BaseHeader>();
+        let cfg = unsafe { cfg_ptr.as_ref().unwrap() };
+        if cfg.vid == 0xffff {
+            return;
+        }
+        log::debug!("BUS {bus} DEV {dev}");
+        check_fn(pci, cfg);
+        if cfg.header_type & 0x80 != 0 {
+            // bit 7 of the header type indicates multi-function device
+            for function in 1..8 {
+                if let Some(fncfg) = pci.physical_address(0, bus, dev, function) {
+                    let fncfg = unsafe {
+                        phys_to_virt(PhysAddr::new(fncfg))
+                            .as_ptr::<BaseHeader>()
+                            .as_ref()
+                            .unwrap()
+                    };
+                    if fncfg.vid == 0xffff {
+                        return;
+                    }
+                    log::debug!("BUS {bus} DEV {dev} FN {function}");
+                    check_fn(pci, fncfg);
+                }
+            }
+        }
+    }
+    fn check_fn(pci: &Pci, cfg: &BaseHeader) {
+        let class = cfg.class;
+        let subclass = cfg.subclass;
+
+        let kind = match (class, subclass) {
+            (0, _) => "Unspecified",
+            (1, _) => "Mass Storage Controller",
+            (2, 1) => "Ethernet Controller",
+            (2, _) => "Network Controller",
+            (3, _) => "Display Controller",
+            (4, _) => "Multimedia Controller",
+            (5, _) => "Memory Controller",
+            (6, 4) => "PCI-to-PCI Bridge",
+            (6, _) => "Bridge",
+            (7, _) => "Simple Communication Controller",
+            (8, _) => "Base System Peripheral",
+            (9, _) => "Input Device Controller",
+            (10, _) => "Docking Station",
+            (11, _) => "Processor",
+            (12, _) => "Serial Bus Controller",
+            (13, _) => "Wireless Controller",
+            _ => "Unknown Device",
+        };
+        log::debug!("{kind}");
+        log::debug!("{cfg:#X?}");
+            
+        if class == 0x6 && subclass == 0x4 {
+            // Pci-to-Pci bridge
+            let cfg = unsafe { core::mem::transmute::<_, &HeaderType1>(cfg) };
+            let bus = cfg.sec_bus;
+            check_bus(pci, bus);
+        }
+    }
+
+    let Some(root_cfg) = pci.physical_address(0, 0, 0, 0) else {return};
+    let root_cfg = unsafe {
+        phys_to_virt(PhysAddr::new(root_cfg))
+            .as_ptr::<BaseHeader>()
+            .as_ref()
+            .unwrap()
+    };
+    if root_cfg.header_type & 0x80 == 0 {
+        log::trace!("single PCI controller");
+        check_bus(pci, 0);
+    } else {
+        log::trace!("multiple PCI controllers");
+        for function in 0..8 {
+            if let Some(fncfg) = pci.physical_address(0, 0, 0, function) {
+                let fncfg = unsafe {
+                    phys_to_virt(PhysAddr::new(fncfg))
+                        .as_ptr::<BaseHeader>()
+                        .as_ref()
+                        .unwrap()
+                };
+                if fncfg.vid == 0xffff {
+                    return;
+                }
+                check_bus(pci, function);
+            }
+        }
+    }
 }
 
 /// # Safety
