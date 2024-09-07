@@ -6,14 +6,15 @@ edition = "2021"
 build = "build.rs"
 
 [package.metadata.bootloader]
+physical-memory-offset = 0x0000_F000_0000_0000 # 0xFFFF_F000_0000_0000
 map-page-table-recursively = true
 minimum-framebuffer-height = 900
-modules = [{ name = "initrd", path = "../initrd/initrd.tar" }]
 map-physical-memory = true
-physical-memory-offset = 0x0000_4000_0000_0000
+aslr = true
+dynamic-range-start = 0x0000_8000_0000_0000    # 0xFFFF_8000_0000_0000
 
 [dependencies]
-bootloader = { git = "https://github.com/tetrahedron341/bootloader", optional = true }
+bootloader = { git = "https://github.com/rust-osdev/bootloader", rev = "ac46d0455b41c11e5d316348d068df1c495ce0af", optional = true }
 volatile = "0.2.6"
 lazy_static = { version = "*", features = ["spin_no_std"] }
 spin = "0.9"

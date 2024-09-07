@@ -1,15 +1,14 @@
 use conquer_once::spin::OnceCell;
 use spin::Mutex;
 use x86_64::structures::paging::{
-    FrameAllocator, Mapper, PageTable, PageTableFlags, PageTableIndex, RecursivePageTable,
+    FrameAllocator, Mapper, Page, PageSize, PageTable, PageTableFlags, PageTableIndex, PhysFrame,
+    RecursivePageTable,
 };
 
 use self::mmap::MemoryRegion;
 
 pub type VirtAddr = x86_64::VirtAddr;
 pub type PhysAddr = x86_64::PhysAddr;
-pub type PhysFrame = x86_64::structures::paging::PhysFrame;
-pub type Page = x86_64::structures::paging::Page;
 
 mod frame_allocator;
 pub(super) mod mmap;
@@ -44,11 +43,21 @@ unsafe fn get_page_table(recursive_index: u16) -> &'static mut PageTable {
     &mut *addr.as_mut_ptr()
 }
 
-pub fn allocate_frame() -> Option<PhysFrame> {
+pub fn allocate_frame<S>() -> Option<PhysFrame<S>>
+where
+    S: PageSize,
+    frame_allocator::BootInfoFrameAllocator: x86_64::structures::paging::FrameAllocator<S>,
+{
     FRAME_ALLOCATOR.get().unwrap().lock().allocate_frame()
 }
 
-pub unsafe fn map_page(page: Page, frame: PhysFrame) {
+/// # Safety
+/// See the [`x86_64::structures::paging::Mapper::map_to`] docs.
+pub unsafe fn map_page<S>(page: Page<S>, frame: PhysFrame<S>)
+where
+    S: PageSize + core::fmt::Debug,
+    x86_64::structures::paging::RecursivePageTable<'static>: x86_64::structures::paging::Mapper<S>,
+{
     MAPPER
         .get()
         .unwrap()
