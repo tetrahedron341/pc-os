@@ -99,7 +99,15 @@ fn init_process(init_elf: &[u8]) -> Result<(), String> {
     let p = kernel::process::create_process_from_elf(init_elf)?;
 
     let mut exec = kernel::task::EXECUTOR.get().unwrap().lock();
-    exec.spawn(p);
+    exec.spawn(async {
+        p.await;
+        log::info!("Init process exited");
+        unsafe {
+            // QEMU poweroff shortcut
+            x86_64::instructions::port::Port::new(0x604).write(0x2000u16);
+        }
+        panic!("Failed to power off after init process exit");
+    });
     exec.spawn(kernel::task::keyboard::print_keypresses());
     Ok(())
 }
