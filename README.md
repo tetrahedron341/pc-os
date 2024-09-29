@@ -1,4 +1,4 @@
-# hey if you see this leave an issue with a name suggestion
+# one of those "OS" things
 
 ## prerequisites
 
@@ -7,6 +7,8 @@
 - qemu
 - [limine](https://github.com/limine-bootloader/limine).
 - ovmf
+
+or you could use nix and install the dev environment using `nix develop` or `nix-shell`
 
 ## building
 
@@ -25,9 +27,5 @@ TODO
 
 ## acknowledgements
 
-cool projects that i either use directly or took inspiration from. check them out
-
 -   https://os.phil-opp.com/
-    -   wouldn't have known where to start without this guide. really cool
 -   https://github.com/limine-bootloader/limine
-    -   very cool bootloader
