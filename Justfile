@@ -57,16 +57,17 @@ img_build_dir := target_dir / "img"
 limine_prefix := env_var_or_default("LIMINE_PREFIX", "/usr/local")
 _make_img kernel initrd: 
     mkdir -p {{img_build_dir}}
-    cp image/limine.cfg \
-       {{limine_prefix}}/share/limine/BOOTX64.EFI \
-       {{limine_prefix}}/share/limine/limine-cd-efi.bin \
-       {{limine_prefix}}/share/limine/limine-cd.bin \
-       {{limine_prefix}}/share/limine/limine.sys \
+    mkdir -p {{img_build_dir}}/EFI/BOOT
+    cp --no-preserve=mode,ownership image/limine.cfg \
+       {{limine_prefix}}/share/limine/limine-uefi-cd.bin \
+       {{limine_prefix}}/share/limine/limine-bios-cd.bin \
+       {{limine_prefix}}/share/limine/limine-bios.sys \
        {{img_build_dir}}
+    cp --no-preserve=mode,ownership {{limine_prefix}}/share/limine/BOOTX64.EFI {{img_build_dir}}/EFI/BOOT
     cp {{kernel}} {{img_build_dir}}/kernel.elf
     cp {{initrd}} {{img_build_dir}}/initrd
-    xorriso -as mkisofs -b limine-cd.bin -e limine-cd-efi.bin -o {{img_path}} {{img_build_dir}}
-    {{limine_prefix}}/bin/limine-deploy {{img_path}}
+    xorriso -as mkisofs -b limine-bios-cd.bin -e limine-uefi-cd.bin -o {{img_path}} {{img_build_dir}}
+    {{limine_prefix}}/bin/limine bios-install {{img_path}}
     rm -r {{img_build_dir}}
 
 img: kernel initrd (_make_img kernel_path initrd_path)

@@ -1,7 +1,7 @@
 use core::mem::MaybeUninit;
 
 use alloc::{boxed::Box, string::String, vec, vec::Vec};
-use limine::LimineFramebuffer;
+use limine::framebuffer::Framebuffer as LimineFramebuffer;
 
 use crate::{
     arch::{
@@ -12,21 +12,21 @@ use crate::{
     video::Framebuffer,
 };
 
-static MMAP_REQUEST: limine::LimineMemmapRequest = limine::LimineMemmapRequest::new(0);
+static MMAP_REQUEST: limine::request::MemoryMapRequest = limine::request::MemoryMapRequest::new();
 
-static HHDM_REQUEST: limine::LimineHhdmRequest = limine::LimineHhdmRequest::new(0);
+static HHDM_REQUEST: limine::request::HhdmRequest = limine::request::HhdmRequest::new();
 
-static MODULES_REQUEST: limine::LimineModuleRequest = limine::LimineModuleRequest::new(0);
+static MODULES_REQUEST: limine::request::ModuleRequest = limine::request::ModuleRequest::new();
 
-static FRAMEBUFFER_REQUEST: limine::LimineFramebufferRequest =
-    limine::LimineFramebufferRequest::new(0);
+static FRAMEBUFFER_REQUEST: limine::request::FramebufferRequest =
+    limine::request::FramebufferRequest::new();
 
-static RSDP_REQUEST: limine::LimineRsdpRequest = limine::LimineRsdpRequest::new(0);
+static RSDP_REQUEST: limine::request::RsdpRequest = limine::request::RsdpRequest::new();
 
-static KERNEL_ADDRESS_REQUEST: limine::LimineKernelAddressRequest =
-    limine::LimineKernelAddressRequest::new(0);
-static KERNEL_FILE_REQUEST: limine::LimineKernelFileRequest =
-    limine::LimineKernelFileRequest::new(0);
+static KERNEL_ADDRESS_REQUEST: limine::request::KernelAddressRequest =
+    limine::request::KernelAddressRequest::new();
+static KERNEL_FILE_REQUEST: limine::request::KernelFileRequest =
+    limine::request::KernelFileRequest::new();
 
 // With the HHDM feature on, 4-level paging, and KASLR enabled, our higher half looks like:
 //
@@ -52,34 +52,26 @@ fn _start() -> ! {
     let kernel_start = crate::panic::unwind::KERNEL_START.get_or_init(|| {
         KERNEL_ADDRESS_REQUEST
             .get_response()
-            .get()
             .unwrap()
-            .virtual_base as usize
+            .virtual_base() as usize
     });
     crate::serial_println!("KERNEL_START: {kernel_start:#X}");
     crate::serial_println!("SERIAL_LOG_MAX: {SERIAL_LOG_MAX:?}");
     crate::panic::unwind::KERNEL_LEN.init_once(|| {
         KERNEL_FILE_REQUEST
             .get_response()
-            .get()
             .unwrap()
-            .kernel_file
-            .get()
-            .unwrap()
-            .length as usize
+            .file()
+            .size() as usize
     });
 
     crate::panic::unwind::KERNEL_ELF.init_once(|| unsafe {
         let ptr = KERNEL_FILE_REQUEST
             .get_response()
-            .get()
             .unwrap()
-            .kernel_file
-            .get()
-            .unwrap()
-            .base
-            .as_ptr()
-            .unwrap() as *const _;
+            .file()
+            .addr()
+            .cast();
         &*ptr
     });
     arch::x86_64::gdt::init();
@@ -123,17 +115,16 @@ fn enable_simd() {
 unsafe fn get_mmap() -> &'static mut [MemoryRegion] {
     let mmap_response = MMAP_REQUEST
         .get_response()
-        .get()
         .expect("MMAP request failed");
-    let limine_mmap = mmap_response.memmap();
+    let limine_mmap = mmap_response.entries();
 
     const MMAP_BUFFER_LEN: usize = 256;
     static mut MMAP_BUFFER: [MaybeUninit<MemoryRegion>; MMAP_BUFFER_LEN] =
         MaybeUninit::uninit_array();
     assert!(limine_mmap.len() <= MMAP_BUFFER_LEN, "Memory map too long");
     let mmap = MaybeUninit::slice_assume_init_mut(&mut MMAP_BUFFER[..limine_mmap.len()]);
-    for (i, r) in limine_mmap.iter().enumerate() {
-        mmap[i] = MemoryRegion::from(&**r);
+    for (i, r) in limine_mmap.iter().copied().enumerate() {
+        mmap[i] = MemoryRegion::from(r);
     }
 
     crate::serial_println!("{:X?}", mmap);
@@ -144,9 +135,8 @@ unsafe fn get_mmap() -> &'static mut [MemoryRegion] {
 fn get_phys_mem_offset() -> VirtAddr {
     let phys_mem_start = HHDM_REQUEST
         .get_response()
-        .get()
         .expect("HHDM request failed")
-        .offset;
+        .offset();
 
     VirtAddr::new(phys_mem_start)
 }
@@ -154,7 +144,6 @@ fn get_phys_mem_offset() -> VirtAddr {
 fn get_modules() -> Vec<BootModule> {
     let limine_modules = MODULES_REQUEST
         .get_response()
-        .get()
         .map(|resp| resp.modules())
         .unwrap_or_else(|| {
             crate::serial_println!("Module request failed");
@@ -162,7 +151,7 @@ fn get_modules() -> Vec<BootModule> {
         });
     let mut modules = vec![];
     for m in limine_modules {
-        let name_ptr = m.path.as_ptr().unwrap().cast::<u8>();
+        let name_ptr = m.path().as_ptr().cast::<u8>();
         let mut name_len = 0;
         while unsafe { name_ptr.offset(name_len).read() } != 0 {
             name_len += 1;
@@ -176,7 +165,7 @@ fn get_modules() -> Vec<BootModule> {
         };
 
         let data =
-            unsafe { core::slice::from_raw_parts_mut(m.base.as_ptr().unwrap(), m.length as usize) };
+            unsafe { core::slice::from_raw_parts_mut(m.addr(), m.size() as usize) };
 
         modules.push(crate::boot::BootModule { name, data });
     }
@@ -202,12 +191,12 @@ fn enumerate_acpi_tables() {
         fn unmap_physical_region<T>(_region: &acpi::PhysicalMapping<Self, T>) {}
     }
 
-    let rsdp_response = RSDP_REQUEST.get_response().get().unwrap();
+    let rsdp_response = RSDP_REQUEST.get_response().unwrap();
     let phys_offset = get_phys_mem_offset().as_u64() as usize;
     let tables = unsafe {
         acpi::AcpiTables::from_rsdp(
             AcpiHandler,
-            rsdp_response.address.as_ptr().unwrap() as usize - phys_offset,
+            rsdp_response.address() as usize - phys_offset,
         )
     }
     .unwrap();
@@ -324,39 +313,39 @@ fn enumerate_pci_devices(pci: &acpi::PciConfigRegions) {
 /// # Safety
 /// Call only once.
 unsafe fn get_framebuffer() -> Option<impl Framebuffer + Send + Sync + 'static> {
-    FRAMEBUFFER_REQUEST.get_response().get().map(|resp| {
-        let fbs = resp.framebuffers();
-        let fb = &(*fbs[0]) as *const LimineFramebuffer;
+    FRAMEBUFFER_REQUEST.get_response().map(|resp| {
+        let mut fbs = resp.framebuffers();
+        let fb = fbs.next().unwrap();
         Box::new(FramebufferImpl(
-            &mut *(fb as *mut limine::LimineFramebuffer),
+            fb,
         )) as Box<dyn Framebuffer + Send + Sync + 'static>
     })
 }
 
-impl From<limine::LimineMemoryMapEntryType> for memory::mmap::MemoryKind {
-    fn from(k: limine::LimineMemoryMapEntryType) -> Self {
-        use limine::LimineMemoryMapEntryType::*;
+impl From<limine::memory_map::EntryType> for memory::mmap::MemoryKind {
+    fn from(k: limine::memory_map::EntryType) -> Self {
+        use limine::memory_map::EntryType;
         match k {
-            Usable => memory::mmap::MemoryKind::Available,
-            BootloaderReclaimable => memory::mmap::MemoryKind::Reserved,
-            Reserved => memory::mmap::MemoryKind::Reserved,
-            KernelAndModules => memory::mmap::MemoryKind::Reserved,
+            EntryType::USABLE => memory::mmap::MemoryKind::Available,
+            EntryType::BOOTLOADER_RECLAIMABLE => memory::mmap::MemoryKind::Reserved,
+            EntryType::RESERVED => memory::mmap::MemoryKind::Reserved,
+            EntryType::KERNEL_AND_MODULES => memory::mmap::MemoryKind::Reserved,
             _ => memory::mmap::MemoryKind::Other,
         }
     }
 }
 
-impl From<&limine::LimineMemmapEntry> for memory::mmap::MemoryRegion {
-    fn from(e: &limine::LimineMemmapEntry) -> Self {
+impl From<&limine::memory_map::Entry> for memory::mmap::MemoryRegion {
+    fn from(e: &limine::memory_map::Entry) -> Self {
         memory::mmap::MemoryRegion {
             start: e.base as usize,
-            len: e.len as usize,
-            kind: e.typ.into(),
+            len: e.length as usize,
+            kind: e.entry_type.into(),
         }
     }
 }
 
-struct FramebufferImpl(&'static mut limine::LimineFramebuffer);
+struct FramebufferImpl(LimineFramebuffer<'static>);
 
 unsafe impl Send for FramebufferImpl {}
 unsafe impl Sync for FramebufferImpl {}
@@ -365,26 +354,26 @@ impl crate::video::Framebuffer for FramebufferImpl {
     fn info(&self) -> crate::video::framebuffer::FramebufferInfo {
         crate::video::framebuffer::FramebufferInfo {
             format: crate::video::framebuffer::PixelFormat {
-                red_shift_bits: self.0.red_mask_shift,
-                red_width_bits: self.0.red_mask_size,
-                green_shift_bits: self.0.green_mask_shift,
-                green_width_bits: self.0.green_mask_size,
-                blue_shift_bits: self.0.blue_mask_shift,
-                blue_width_bits: self.0.blue_mask_size,
+                red_shift_bits: self.0.red_mask_shift(),
+                red_width_bits: self.0.red_mask_size(),
+                green_shift_bits: self.0.green_mask_shift(),
+                green_width_bits: self.0.green_mask_size(),
+                blue_shift_bits: self.0.blue_mask_shift(),
+                blue_width_bits: self.0.blue_mask_size(),
             },
-            bytes_per_pixel: (self.0.bpp as usize) / 8,
-            width: self.0.width as _,
-            height: self.0.height as _,
-            stride: self.0.pitch as _,
-            buffer_len: (self.0.height * self.0.pitch) as _,
+            bytes_per_pixel: (self.0.bpp() as usize) / 8,
+            width: self.0.width() as _,
+            height: self.0.height() as _,
+            stride: self.0.pitch() as _,
+            buffer_len: (self.0.height() * self.0.pitch()) as _,
         }
     }
 
     fn get_mut(&mut self) -> &mut [u8] {
         unsafe {
             core::slice::from_raw_parts_mut(
-                self.0.address.as_ptr().unwrap(),
-                (self.0.height * self.0.pitch) as _,
+                self.0.addr(),
+                (self.0.height() * self.0.pitch()) as _,
             )
         }
     }
