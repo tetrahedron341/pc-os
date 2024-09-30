@@ -5,9 +5,7 @@ use core::task::{Context, Poll, Waker};
 use spin::Mutex;
 
 static TICKS: AtomicU64 = AtomicU64::new(0);
-/// A workaround to create a static array of non-Copy `None`s
-const _NONE_WAKER: Option<(Waker, u64)> = None;
-static WAKERS: Mutex<[Option<(Waker, u64)>; 128]> = Mutex::new([_NONE_WAKER; 128]);
+static WAKERS: Mutex<[Option<(Waker, u64)>; 128]> = Mutex::new([const { None }; 128]);
 
 pub(crate) fn tick_timer() {
     let t = TICKS.fetch_add(1, Ordering::Relaxed);
