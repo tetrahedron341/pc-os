@@ -12,9 +12,6 @@ pub fn loop_forever() -> ! {
 }
 
 mod boot {
-    #[cfg(feature = "phil_opp_bootloader")]
-    mod phil_opp_bootloader;
-
     #[cfg(feature = "limine_bootloader")]
     mod limine;
 }
