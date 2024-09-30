@@ -3,8 +3,6 @@
 #![feature(custom_test_frameworks)]
 #![feature(abi_x86_interrupt)]
 #![feature(alloc_error_handler)]
-#![feature(asm_const)]
-#![feature(const_mut_refs)]
 #![feature(naked_functions)]
 #![feature(maybe_uninit_uninit_array)]
 #![feature(maybe_uninit_slice)]
