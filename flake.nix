@@ -13,7 +13,8 @@
         limine-override = pkgs.limine.override { enableAll=true; };
         rustChannel = pkgs.rustChannelOf {
           rustToolchain = ./rust-toolchain.toml;
-          sha256 = "sha256-fciDir+a3mo4kzjN1at6Oo3/l+eGmwV+k/w8SX3FDA4=";
+          date = "2024-09-29";
+          sha256 = "sha256-eRCZskam9/DrpAVsoMyvSY7TLnl0E5gfN8FK4gcgZBo=";
         };
         buildInputs = with pkgs; [ just qemu limine-override jq xorriso OVMF.fd ];
         nativeBuildInputs = (with rustChannel; [ (rust.override {
